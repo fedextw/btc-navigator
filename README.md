@@ -8,10 +8,12 @@
 
 1. 安裝 **Python 3.11 或更新版本**（建議 3.11）；Windows 安裝時勾選 **Add Python to PATH**。
 2. 將整個 ZIP 解壓縮到可寫入的資料夾，不能直接從 ZIP 內執行。
-3. Windows 雙擊 `啟動.bat`；macOS 雙擊 `啟動.command`；Linux 執行 `bash 啟動.sh`。
+3. Windows 雙擊 **`START.bat`**（`啟動.bat` 也可以）；macOS 雙擊 `啟動.command`；Linux 執行 `bash 啟動.sh`。請勿直接雙擊 `launch.py`，也不要只從 ZIP 拖出單一啟動檔。
 4. 首次會連網下載固定版本套件，之後自動開啟瀏覽器並啟動背景研究。若瀏覽器未自動開啟，依終端顯示的本機地址開啟。
 
 macOS 若沒有執行權限，在終端執行 `chmod +x 啟動.command`，再雙擊。首次需可連線 PyPI，不需要 Docker、Node.js 或交易所金鑰。**沒有內附 Python 或獨立 EXE**；Windows／macOS 啟動檔未經原生平台實機驗證，Linux 已測試。
+
+新版啟動器會在離開前保留視窗，並將 Python 版本、套件安裝與啟動輸出寫入 `startup.log`。失敗時請看實際錯誤，不需要猜測閃退原因；資料夾無法寫入時，紀錄改存系統暫存目錄 `btc-navigator-startup.log`。Windows 會優先選擇已安裝的 Python 3.11。
 
 保留啟動視窗，關閉瀏覽器後背景程序仍可執行。按 **Ctrl+C** 結束網站與背景程序。電腦關機、休眠、網路中斷或雲端機器停止時不能持續監控；本包不會安裝作業系統服務或自動開機程序。
 

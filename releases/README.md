@@ -6,7 +6,9 @@
 
 1. 將整個 ZIP 解壓縮。
 2. 安裝 Python 3.11 以上。
-3. Windows 雙擊 `啟動.bat`；macOS 雙擊 `啟動.command`；Linux 執行 `bash 啟動.sh`。
+3. Windows 雙擊 **`START.bat`**；macOS 雙擊 `啟動.command`；Linux 執行 `bash 啟動.sh`。
+
+新版啟動檔會保留錯誤視窗，並保存 `startup.log`。請完整解壓縮到新資料夾，勿直接雙擊 `launch.py`。如果啟動失敗，查看 `startup.log` 最後的實際錯誤。
 
 首次會下載套件，之後啟動本機網站與背景研究。操作說明及驗證限制在壓縮檔內的 `README.md`、`驗證報告.md`。
 
