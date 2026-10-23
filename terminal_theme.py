@@ -42,5 +42,7 @@ button[kind="primary"]{background:var(--mint)!important;color:#08251c!important;
 @media(min-width:1000px){[data-testid="stSidebar"]{min-width:255px!important;max-width:255px!important}}
 @media(max-width:700px){.block-container{padding:1.2rem 1rem 2rem}.hero{padding:22px 18px}.hero h1{font-size:25px!important}.hero:after{right:12px;width:40px;height:40px}.hero p{max-width:95%}.op-card{min-height:120px}[data-testid="stMetric"]{padding:13px;min-height:90px}[data-testid="stMetricValue"]{font-size:23px}.section-head{align-items:flex-start}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+.growth-flow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:16px 0 24px}.growth-step{border:1px solid #34476a;border-radius:14px;padding:18px 14px;background:linear-gradient(145deg,#1d2947,#101a2a);min-width:0}.growth-step b{display:block;color:#7c98ff;font:26px monospace;margin-bottom:14px}.growth-step strong{display:block;color:#e8f0ff;font-size:14px}.growth-step small{display:block;color:#98accb;margin-top:10px;font-size:11px;line-height:1.7}.hero{background:radial-gradient(ellipse at 90% 10%,#6159ba55,transparent 60%),linear-gradient(120deg,#132c35,#15192f)}
+@media(max-width:900px){.growth-flow{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:450px){.growth-step{padding:12px}.growth-step b{font-size:21px}}
 </style>
 """

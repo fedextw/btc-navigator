@@ -448,7 +448,7 @@ def main():
         with st.expander("AI 摘要設定（選用）"):
             st.text_input("OpenAI API Key", type="password", key="ai_session_key", help="只保留於本次網頁連線，不寫入模型、紀錄或壓縮檔。也可用 AI_API_KEY 環境變數。")
             st.caption("Ollama 不需要此金鑰；到全市場設定選擇供應者。OpenAI 手動摘要才可能產生 API 費用。")
-        st.markdown('<span class="tag">RESEARCH BUILD · 0.6</span>', unsafe_allow_html=True)
+        st.markdown('<span class="tag">RESEARCH BUILD · 0.7</span>', unsafe_allow_html=True)
         st.caption("頁面開啟期間每 60 秒刷新。\n\n公開資料不需交易所 API Key。")
         st.caption("背景狀態請看「全市場訊號／系統健康」，推播與模型設定請到「設定中心」。")
     if workspace == "策略訊號台":

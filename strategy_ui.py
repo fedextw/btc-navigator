@@ -12,6 +12,7 @@ from strategy_learning import load,evidence,selected_forward
 from monitor_settings import load_settings,save_settings
 from runtime_config import STATE_ROOT
 from signal_store import connect as signals_db
+from strategy_growth_ui import growth_center,risk_panel,interactive_signal_panel
 
 
 def price(x):
@@ -34,7 +35,7 @@ def settings_panel():
             slip=c.number_input('策略單邊滑價假設（%）',0.,1.,float(s['strategy_slippage_pct']),.01)
             funding=d.number_input('策略每8h資金費假設（%）',-1.,1.,float(s['strategy_funding_pct_8h']),.01)
             ai=st.checkbox('自動保存策略 AI 文字分析（需同時啟用全域自動 AI）',s['strategy_ai_enabled'])
-            alerts=st.checkbox('啟用達75%研究門檻的策略 Telegram 推播',s['strategy_notifications'])
+            alerts=st.checkbox('啟用通過獲利與風險門檻的策略 Telegram 推播',s['strategy_notifications'])
             st.caption('AI 與原訊號共用每日額度；Ollama 不需 API Key。推播仍需全域 Telegram 已啟用。初始資金只影響尚未建立的帳戶，不重寫既有績效；成本與風險設定只套用新預測。')
             if st.form_submit_button('儲存雙策略設定',type='primary'):
                 save_settings({'strategy_enabled':enabled,'strategy_initial':initial,'strategy_risk_pct':risk,
@@ -45,7 +46,7 @@ def settings_panel():
 
 def signal_card(t,qualifies):
     profile=PROFILES[t['strategy']]
-    label='符合75%歷史研究門檻' if qualifies else '模擬研究候選 · 未達75%門檻'
+    label='通過獲利與風險研究門檻' if qualifies else '模擬研究候選 · 獲利證據尚待驗證'
     tone='long' if t['side']=='LONG' else 'short'
     side='做多 LONG' if t['side']=='LONG' else '做空 SHORT'
     expired=t['status']=='pending' and pd.Timestamp.now(tz='UTC')>=pd.Timestamp(t['eligible_entry_time'])
@@ -56,7 +57,7 @@ def signal_card(t,qualifies):
 <div class="op-detail">{esc(label)}<br>{esc(status)} · {esc(profile['version'])}</div>
 <div class="op-price">{esc(entry_label)} {esc(price(entry))}</div>
 <div style="display:flex;gap:24px;flex-wrap:wrap;font-size:18px"><span class="up">止盈 {esc(price(t['target']))}</span><span class="down">止損 {esc(price(t['stop']))}</span></div>
-<div class="op-detail" style="margin-top:12px">基準 {esc(t['interval'])} · 最長 {profile['max_bars']} 根 · {esc(t['signal_time'])} UTC<br>參考有效至／預定紙上進場 {esc(t['eligible_entry_time'])} UTC<br>價位僅為紙上研究；非實盤成交或本次75%勝率。</div></div>''',unsafe_allow_html=True)
+<div class="op-detail" style="margin-top:12px">基準 {esc(t['interval'])} · 最長 {profile['max_bars']} 根 · {esc(t['signal_time'])} UTC<br>參考有效至／預定紙上進場 {esc(t['eligible_entry_time'])} UTC<br>價位僅為紙上研究；非實盤成交或獲利保證。</div></div>''',unsafe_allow_html=True)
 
 
 def learning_panel(db,profile,mode,rows):
@@ -64,15 +65,18 @@ def learning_panel(db,profile,mode,rows):
     model=learner.get('incumbent')
     chosen=selected_forward(closed,model['id']) if model else []
     proof=evidence(chosen,mode,sum(r['status']=='unresolved' for r in rows))
+    growth_center(db,profile,mode,rows)
+    section('獲利與風險研究資格','FORWARD EVIDENCE / NO WIN-RATE TARGET')
     a,b,c,d=st.columns(4)
-    a.metric('目標勝率','75%')
+    mean=proof['stats']['expectancy_pct']
+    a.metric('AI選擇後平均淨報酬',f'{mean:+.3f}%' if mean is not None else '尚無樣本')
     b.metric('AI選擇後未來觀察勝率',f'{proof["win_rate"]:.1f}%' if proof['win_rate'] is not None else '尚無樣本')
     c.metric('選擇樣本／不同交易日',f'{proof["samples"]} / {proof["trading_days"]}')
-    interval=proof['wilson95_pct']
-    d.metric('95%近似區間',f'{interval[0]:.1f}–{interval[1]:.1f}%' if interval[0] is not None else '尚無樣本')
+    d.metric('AI選擇後逐筆回撤',f'{proof["stats"]["max_drawdown_pct"]:.2f}%')
     st.info(proof['label'])
-    st.caption('目標檢驗使用近90天最近200筆被模型選擇的未來結算交易。區間假設樣本近似獨立；跨幣種同時交易可能相關，因此仍可能低估不確定性。模型機率、訓練勝率和已觀察勝率是不同概念。')
-    st.dataframe(pd.DataFrame([{'目標檢驗':k,'狀態':'通過' if v else '未通過'} for k,v in proof['checks'].items()]),hide_index=True,width='stretch')
+    interval=proof['expectancy95_pct']
+    st.caption('近90天最多200筆已事前選擇的未來結算交易；以台北結算日群聚重抽樣。平均淨報酬95%近似區間：'+(f'{interval[0]:+.3f}% ～ {interval[1]:+.3f}%' if interval[0] is not None else '樣本不足')+'。此區間未涵蓋跨日相關及反覆檢驗偏誤；逐筆1×曲線不是組合帳戶ROI。')
+    st.dataframe(pd.DataFrame([{'研究資格':k,'狀態':'通過' if v else '未通過'} for k,v in proof['checks'].items()]),hide_index=True,width='stretch')
     if model:
         st.write('**現行影子模型**：'+model['id']+' · '+model['trained_at'])
         st.caption(f'過去資料 {model["source_count"]} 筆；驗證集選門檻 {model["threshold"]:.0%}，不是宣稱達到此勝率。')
@@ -82,8 +86,8 @@ def learning_panel(db,profile,mode,rows):
     if learner.get('challenger'):
         st.write('**平行候選模型**：'+learner['challenger']['id'])
         st.caption('先保存兩版本預測，等待共同未來樣本；各至少100筆被選擇交易並通過保守條件才比較晉升。')
-    if learner.get('history'):st.dataframe(pd.DataFrame(learner['history']),hide_index=True,width='stretch')
-    st.caption('策略規則版本固定；AI學習候選在成本後獲利的條件，不會為追求75%而自行改寫止盈止損。策略帳戶績效包含原始候選，AI選擇子集不等於另開的組合帳戶。')
+
+    st.caption('策略規則版本固定；AI學習候選在成本後獲利的條件，不以勝率為升級目標，也不自行改寫止盈止損。策略帳戶績效包含原始候選，AI選擇子集不等於另開的組合帳戶。')
     with st.expander('查看歷史策略模型版本'):
         versions=[json.loads(r[0]) for r in db.execute('SELECT payload FROM strategy_models WHERE profile=? AND mode=? ORDER BY created_at DESC LIMIT 30',(profile,mode))]
         if versions:
@@ -106,7 +110,7 @@ def backtest_panel(profile,mode):
     from research_data import history
     from strategy_backtest import run
     p=PROFILES[profile]
-    st.caption('歷史回測與未來紙上帳戶分開，回測不會增加75%達標樣本或策略AI訓練筆數。高週期由基準K線完整聚合並按時間向後對齊。')
+    st.caption('歷史回測與未來紙上帳戶分開，回測不會增加獲利證據樣本或策略AI訓練筆數。高週期由基準K線完整聚合並按時間向後對齊。')
     with st.form('strategy-backtest-'+profile):
         source=st.radio('策略歷史來源',['目前模式歷史行情','匯入CSV'],horizontal=True)
         file=st.file_uploader('策略基準K線 CSV',type=['csv'],help=f'900–5000根，基準需為{p["interval"]}')
@@ -145,12 +149,12 @@ def backtest_panel(profile,mode):
 
 @st.fragment(run_every=15)
 def strategy_page():
-    hero('STRATEGIES / SIGNAL & LEARNING','趨勢與當沖，各有一套證據。','直接查看方向、進場、止盈止損；兩套策略分開模擬、學習與核對績效。75%是研究目標，不是預設勝率。',[('趨勢 4h→1h',''),('當沖 1h→15m',''),('僅紙上交易','green')])
+    hero('STRATEGIES / SIGNAL & LEARNING','讓每一次進化，都有獲利與風險證據。','市場監控 × 模擬經驗 × 模型競賽。直接看交易點位，也看AI為何升級或保留。',[('趨勢 4h→1h',''),('當沖 1h→15m',''),('僅紙上交易','green')])
     mode=st.selectbox('策略資料模式',['live','demo'],index=1 if os.environ.get('BTC_NAVIGATOR_DEMO')=='1' else 0,format_func=lambda x:'真實資料紙上研究' if x=='live' else '示範／歷史演示')
     db=connect()
     try:
         worker=state(db,'worker')
-        if mode=='demo':st.warning('示範模式沒有自動真實市場策略輪詢；可使用下方歷史重播。合成資料不能通過75%研究目標。')
+        if mode=='demo':st.warning('示範模式沒有自動真實市場策略輪詢；可使用下方歷史重播。合成資料不能通過真實獲利研究門檻。')
         elif not worker:st.info('等待策略背景程序；請以新版 START.bat 啟動，並確認全市場取得合約名單。')
         else:
             import time
@@ -160,7 +164,7 @@ def strategy_page():
             for error in worker.get('errors',[])[:4]:st.caption(error)
         all_stats={key:summary(db,key,mode) for key in PROFILES}
         section('策略訊號速覽','DIRECTION · ENTRY · TAKE PROFIT · STOP LOSS')
-        only_verified=st.checkbox('只顯示已通過75%歷史研究門檻的策略候選',False)
+        only_verified=st.checkbox('只顯示通過獲利與風險研究門檻的策略候選',False)
         cards=[]
         for key,stats in all_stats.items():
             learner=load(db,key,mode);model=learner.get('incumbent')
@@ -175,7 +179,7 @@ def strategy_page():
             columns=st.columns(2)
             for index,(t,qualifies) in enumerate(cards[:12]):
                 with columns[index%2]:signal_card(t,qualifies)
-        else:st.info('目前沒有符合顯示條件的策略紙上候選。WAIT、資料不足或75%證據不足時，不會填入虛構點位。')
+        else:st.info('目前沒有符合顯示條件的策略紙上候選。WAIT、資料不足或獲利證據不足時，不會填入虛構點位。')
         selected=st.selectbox('查看策略帳戶與紀錄',list(PROFILES),format_func=lambda key:PROFILES[key]['name'])
         stats=all_stats[selected];a=stats['account']
         with st.expander('查看此策略觀望原因與分析條件'):
@@ -186,16 +190,16 @@ def strategy_page():
                 st.dataframe(pd.DataFrame([{'交易對':r['symbol'],'研究方向':r['side'],'時間UTC':r['signal_time'],
                     '未符合條件':'、'.join(k for k,v in r['checks'].items() if not v)} for r in filtered]).head(500),hide_index=True,width='stretch')
             else:st.caption('尚無符合篩選的策略快照；背景需先取得新鮮行情。')
-        tabs=st.tabs(['績效與交易紀錄','AI學習與75%目標','策略歷史重播'])
+        tabs=st.tabs(['獲利與風險','AI成長與模型競賽','互動訊號圖表','交易紀錄與復盤','策略歷史重播'])
         with tabs[0]:
+            risk_panel(db,selected,mode,stats)
             a1,b,c,d=st.columns(4)
             a1.metric('已結算策略交易',stats['closed']);b.metric('原策略未來觀察勝率',f'{stats["wins"]/stats["closed"]*100:.1f}%' if stats['closed'] else '尚無樣本')
             c.metric('策略帳戶已實現報酬',f'{(a["equity"]/a["initial"]-1)*100:+.2f}%' if a else '尚未建立')
             d.metric('策略帳戶已實現回撤',f'{a["max_drawdown_pct"]:.2f}%' if a else '尚未建立')
             st.caption(f'待進場 {stats["pending"]} · 持倉 {stats["open"]} · 無法還原 {stats["unresolved"]} · 兩策略各自獨立資金，報酬不是兩者合併帳戶；未含未實現損益。')
             if stats['unresolved']:st.error('有未知行情部位，預留資金保留、暫停該策略新進場，不補造績效。請保留資料供還原。')
-            curve=db.execute('SELECT observed_at,equity FROM strategy_equity WHERE strategy=? AND mode=? ORDER BY id DESC LIMIT 1000',(selected,mode)).fetchall()
-            if curve:st.line_chart(pd.DataFrame([{'時間':r[0],'已實現權益':r[1]} for r in reversed(curve)]).set_index('時間'))
+        with tabs[3]:
             rows=stats['rows']
             if rows:
                 table=pd.DataFrame([{'交易編號':r['id'],'交易對':r['symbol'],'類型':PROFILES[selected]['name'],'方向':r['side'],'狀態':r['status'],
@@ -219,5 +223,6 @@ def strategy_page():
                 else:st.caption('結構化分析已保存；尚無文字摘要。文字解讀需在設定中心啟用，與原訊號共用每日額度。')
             else:st.info('尚無策略預測紀錄，背景只在規則成立時保存候選；不把回測結果冒充未來交易。')
         with tabs[1]:learning_panel(db,selected,mode,stats['rows'])
-        with tabs[2]:backtest_panel(selected,mode)
+        with tabs[2]:interactive_signal_panel(stats['rows'],STATE_ROOT,mode)
+        with tabs[4]:backtest_panel(selected,mode)
     finally:db.close()

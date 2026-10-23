@@ -170,12 +170,12 @@ class JournalTests(unittest.TestCase):
 
 
 class LearningTests(unittest.TestCase):
-    def test_75_percent_observed_is_not_enough_for_75_percent_lower_bound(self):
+    def test_win_rate_is_reference_and_not_a_promotion_objective(self):
         rows=sample_trades(100)
         for i,r in enumerate(rows):r.update(pnl=2. if i<75 else -1.,net_return=.02 if i<75 else -.01)
         r=evidence(rows,'live')
         self.assertEqual(r['win_rate'],75.)
-        self.assertFalse(r['target_pass']);self.assertLess(r['wilson95_pct'][0],75.)
+        self.assertFalse(r['target_pass']);self.assertFalse(r['checks']['逐筆1×回撤低於15%']);self.assertLess(r['wilson95_pct'][0],75.)
         self.assertTrue(evidence(sample_trades(100),'live')['target_pass'])
         self.assertFalse(evidence(sample_trades(100),'demo')['target_pass'])
         self.assertFalse(evidence(sample_trades(100),'live',unresolved=1)['target_pass'])
@@ -311,6 +311,7 @@ class StrategyIntegrationTests(unittest.TestCase):
             db.commit();learner=update(db,'trend','live')
             self.assertIn('incumbent',learner)
             self.assertEqual(db.execute('SELECT COUNT(*) FROM strategy_models').fetchone()[0],1)
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM strategy_training_runs').fetchone()[0],1)
             rows=[json.loads(r[0]) for r in db.execute('SELECT payload FROM strategy_trades')]
             self.assertEqual(selected_forward(rows,learner['incumbent']['id']),[])
             self.assertFalse(learner.get('forward_evidence',{}).get('target_pass',False));db.close()

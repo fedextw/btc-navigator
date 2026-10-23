@@ -28,6 +28,7 @@ def connect(root=STATE_ROOT):
       CREATE TABLE IF NOT EXISTS strategy_equity(id INTEGER PRIMARY KEY AUTOINCREMENT,strategy TEXT,mode TEXT,observed_at TEXT,equity REAL,reason TEXT);
       CREATE TABLE IF NOT EXISTS strategy_ai_inputs(trade_id TEXT PRIMARY KEY,requested_at TEXT,provider TEXT,model TEXT,payload TEXT);
       CREATE TABLE IF NOT EXISTS strategy_models(id TEXT PRIMARY KEY,profile TEXT,mode TEXT,created_at TEXT,payload TEXT);
+      CREATE TABLE IF NOT EXISTS strategy_training_runs(id INTEGER PRIMARY KEY AUTOINCREMENT,profile TEXT,mode TEXT,attempted_at TEXT,source_count INTEGER,result TEXT,model_id TEXT);
       CREATE TABLE IF NOT EXISTS strategy_reviews(id TEXT PRIMARY KEY,strategy TEXT,mode TEXT,observed_at TEXT,payload TEXT);
     ''',rows=True)
 

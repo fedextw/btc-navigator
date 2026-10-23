@@ -46,12 +46,14 @@ def format_signal(signal):
         from strategy_rules import PROFILES
         profile=PROFILES[signal["strategy"]]
         stats=signal["forward_evidence"]
+        qualification=("已通過獲利與風險研究門檻" if stats.get("objective")=="profit-risk-v2" else "舊版研究通知，未重做新版獲利資格檢驗")
         return (f'◈ {profile["name"]}研究訊號｜{signal["symbol"]}｜{signal["interval"]}\n'
                 f'{signal["side"]}｜參考進場 {signal["entry"]:.8g}\n止盈 {signal["target"]:.8g}｜止損 {signal["stop"]:.8g}\n'
                 f'模型 {signal["model_id"]}｜未來紙上選擇樣本 {stats["samples"]} 筆／{stats["trading_days"]} 日\n'
-                f'歷史觀察勝率 {stats["win_rate"]:.1f}%（非本次保證勝率）\n'
+                f'成本後逐筆平均 {stats["stats"]["expectancy_pct"]:+.3f}%｜逐筆回撤 {stats["stats"]["max_drawdown_pct"]:.2f}%（非組合ROI）\n'
+                f'歷史觀察勝率 {stats["win_rate"]:.1f}%（僅供參考）\n'
                 f'有效至 UTC {datetime.fromtimestamp(signal["expires_at"], timezone.utc).isoformat()}\n'
-                '已通過設定的75%歷史研究門檻；成本含假設，尚非實盤驗證，不會自動真實下單。')
+                f'{qualification}；成本含假設，尚非實盤驗證，不會自動真實下單。')
     direction = "偏多 LONG" if signal["side"] == "LONG" else "偏空 SHORT"
     def price(number):
         return f"{number:,.2f}" if number >= 10 else f"{number:.8f}"

@@ -20,7 +20,9 @@ for page in ['策略訊號台','互動決策台','學習與績效','系統健康
     next(x for x in at.radio if x.label=='功能').set_value(page).run()
     assert not at.exception, (page,at.exception)
     if page=='策略訊號台':
-        assert next(x for x in at.metric if x.label=='目標勝率').value=='75%'
+        assert next(x for x in at.metric if x.label=='AI選擇後平均淨報酬').value=='尚無樣本'
+        assert any(x.label=='已封存策略模型' for x in at.metric)
+        assert not any(x.label=='目標勝率' for x in at.metric)
         assert next(x for x in at.metric if x.label=='AI選擇後未來觀察勝率').value=='尚無樣本'
         next(x for x in at.button if x.label=='執行此策略歷史重播').click().run(timeout=45)
         assert not at.exception,at.exception
