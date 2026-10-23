@@ -1,6 +1,6 @@
 # 一鍵啟動包下載
 
-目前為 **0.4 科技風格研究工作站版**。[完整首次使用指南與 Telegram 設定](../使用指南.md)。
+目前為 **0.5 互動研究與滾動驗證版**。[完整首次使用指南與 Telegram 設定](../使用指南.md)。
 
 **[點此下載 BTC-Navigator.zip](https://github.com/fedextw/btc-navigator/raw/refs/heads/codex/btc-navigator-delivery/releases/BTC-Navigator.zip)**
 
@@ -21,3 +21,5 @@
 檔案雜湊見 `BTC-Navigator.zip.sha256`。ZIP 不包含金鑰、本機模型或監控紀錄。
 
 0.4 的訓練追蹤、紙上紀錄匯出及資金成本情境，請看 [新版指南](../新版介面與績效指南.md)。
+
+0.5 功能說明與如何核對新研究證據，請看 [互動研究指南](../互動研究與驗證指南.md)。新條件先做影子觀察，不代表勝率已提升。

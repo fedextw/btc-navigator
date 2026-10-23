@@ -143,11 +143,19 @@ def status_panel():
             selected = [r for r in rows if filter_text.upper() in r["symbol"] and (not only_setups or r["rule_side"] != "WAIT")]
             if selected:
                 table = pd.DataFrame([{"交易對": r["symbol"], "綜合方向": r["side"], "規則": r["rule_side"],
+                    "行情分類": r.get("regime", {}).get("label", "待更新"),
+                    "滾動研究": "通過（影子）" if r.get("walk_evidence_pass") else "待驗證／未通過",
                     "分數": r["score"], "模型": r.get("model_side") or "尚未準備", "狀態": r["status"],
                     "標記價格": r.get("mark_price"), "24h成交額": r.get("volume_24h"),
                     "觀望原因": "、".join(r.get("reasons", [])), "更新UTC": r["updated_at"]} for r in selected])
                 st.dataframe(table, hide_index=True, width="stretch", height=380)
                 inspect = st.selectbox("選擇幣種深入研究", [r["symbol"] for r in selected], key="scanner_inspect_symbol")
+                if st.button("開啟互動決策台", type="primary"):
+                    st.session_state["pending_symbol"] = inspect
+                    st.session_state["pending_workspace"] = "互動決策台"
+                    st.session_state["pending_research_interval"] = interval
+                    st.session_state["pending_research_mode"] = mode
+                    st.rerun()
                 if st.button("開啟單幣分析"):
                     st.session_state["pending_symbol"] = inspect
                     st.session_state["pending_workspace"] = "單幣研究"
@@ -180,6 +188,10 @@ def status_panel():
                             st.markdown(ai[1]) if ai[0] == "complete" else st.caption("AI 解讀：" + ai[0])
                     if delivered and delivered[2]:
                         st.caption("發送狀態：" + delivered[2] + "。unknown 表示結果不明，系統不會自動重送以免重複。")
+                    if payload.get("regime"):
+                        st.caption("訊號當時行情：" + payload["regime"]["label"] + " · 滾動研究僅作影子觀察")
+                    if payload.get("multi_timeframe"):
+                        st.caption("多週期影子研究：" + payload["multi_timeframe"]["status"] + " · 基準 " + payload["multi_timeframe"]["as_of"])
                     for index, source in enumerate(payload.get("ai_sources", []), 1):
                         st.caption(f'[{index}] {source["source"]}：{source["title"]}')
                         st.link_button("新聞原始來源", source["url"], key=f'ai-ref-{event["id"]}-{index}')

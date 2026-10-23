@@ -38,7 +38,8 @@ def training_activity(root=STATE_ROOT, interval='1h', mode='live', now=None):
                 '測試交易數': record.get('test_stats', {}).get('trades', 0),
                 '測試淨報酬%': record.get('test_stats', {}).get('net_pct', 0),
                 '最大回撤%': record.get('test_stats', {}).get('max_drawdown_pct', 0),
-                '決策': record.get('promotion', {}).get('decision', '—')})
+                '決策': record.get('promotion', {}).get('decision', '—'),
+                '滾動研究': '通過（影子）' if record.get('walk_forward',{}).get('evidence_pass') else '待驗證／未通過'})
     return result
 
 

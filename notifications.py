@@ -55,6 +55,8 @@ def format_signal(signal):
         '理由：' + reason[:650], f'已收盤 K 線（UTC）：{signal["candle_time"]}',
         '有效期限（UTC）：' + datetime.fromtimestamp(signal["expires_at"], timezone.utc).isoformat(),
         '這是待獨立核對的研究訊號，非成交指令或獲利保證；不會替你下單。']
+    if signal.get("regime"):
+        lines.append("行情分類：" + signal["regime"]["label"] + "（描述性影子研究，非勝率）")
     news = signal.get("news", [])
     if news:
         lines.append('背景新聞（僅標題，未驗證與走勢的因果）：')

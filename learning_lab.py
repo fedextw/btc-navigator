@@ -17,7 +17,7 @@ import pandas as pd
 from analysis_engine import indicators
 
 FEATURES = ["ret1", "ret3", "ret12", "ema_gap", "ema200_gap", "rsi_scaled", "macd_scaled", "atr_scaled", "volume_scaled"]
-MODEL_VERSION = 1
+MODEL_VERSION = 2
 
 
 def feature_frame(candles):
@@ -149,7 +149,7 @@ def train_and_evaluate(candles, symbol, interval, demo=False, horizon=6, fee_pct
     }
     dataset_sha256 = hashlib.sha256(raw.to_csv(index=False).encode()).hexdigest()
     identity = hashlib.sha256((symbol + interval + dataset_sha256 + str(horizon) + str(cost) + str(demo) + str(MODEL_VERSION)).encode()).hexdigest()[:16]
-    return dict(version=MODEL_VERSION, id=identity, symbol=symbol, interval=interval, demo=demo,
+    record = dict(version=MODEL_VERSION, id=identity, symbol=symbol, interval=interval, demo=demo,
                 trained_at=datetime.now(timezone.utc).isoformat(), last_candle=str(raw.iloc[-1].close_time),
                 model=model, threshold=threshold, regularization=regularization, horizon=horizon,
                 cost=cost, fee_pct=fee_pct, slippage_pct=slippage_pct,
@@ -164,6 +164,10 @@ def train_and_evaluate(candles, symbol, interval, demo=False, horizon=6, fee_pct
                 train_majority_probability=baseline_p,
                 dataset_sha256=dataset_sha256,
                 historical_range=[str(raw.iloc[0].time), str(raw.iloc[-1].close_time)])
+    from walk_forward import evaluate as evaluate_walk
+    record["walk_forward"] = evaluate_walk(raw, symbol, interval, demo, horizon, fee_pct, slippage_pct)
+    record["walk_forward"]["origin"] = "model_training"
+    return record
 
 
 def model_path(root, symbol, interval, demo):

@@ -15,6 +15,12 @@ from runtime_config import STATE_ROOT
 def learning_tab(market, result):
     st.markdown("### AI 學習實驗室")
     st.caption("流程：收集歷史 → 訓練集學習 → 驗證集選參數 → 保留測試集評估 → 新行情紙上驗證。沒有『訓練到保證準確』的機制。")
+    if st.button("在互動決策台檢視此幣種"):
+        st.session_state["pending_workspace"] = "互動決策台"
+        st.session_state["pending_symbol"] = market["symbol"]
+        st.session_state["pending_research_interval"] = market["interval"]
+        st.session_state["pending_research_mode"] = market["mode"]
+        st.rerun()
     demo = market["mode"] == "demo"
     symbol, interval = market["symbol"], market["interval"]
     path = model_path(STATE_ROOT / "models", symbol, interval, demo)
@@ -44,6 +50,8 @@ def learning_tab(market, result):
                 if imported:
                     record["checks"]["匯入來源已由系統驗證"] = False
                     record["research_pass"] = False
+                    record["walk_forward"]["checks"]["匯入來源獨立驗證"] = False
+                    record["walk_forward"]["evidence_pass"] = False
                 dataset = STATE_ROOT / "datasets" / f'{record["id"]}.csv'
                 dataset.parent.mkdir(parents=True, exist_ok=True)
                 candles.to_csv(dataset, index=False)

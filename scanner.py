@@ -23,6 +23,8 @@ from notifications import dispatch
 from runtime_config import STATE_ROOT
 from signal_store import connect, set_state, get_state, save_result, record_signal
 from model_evolution import select_model
+from market_regime import classify
+from multi_timeframe import compare as compare_periods
 
 
 def utcnow():
@@ -137,6 +139,8 @@ class MarketScanner:
             "model_id": record["id"] if record else None, "model_pass": bool(record and record["research_pass"]),
             "reasons": reasons, "candle_time": str(market["candles"].iloc[-1].close_time),
             "gates": gates, "paper_summary": paper_summary,
+            "regime": classify(market["candles"]),
+            "walk_evidence_pass": bool(record and record.get("walk_forward", {}).get("evidence_pass")),
             "status": "方向成立" if decision["side"] != "WAIT" else "待訓練" if record is None else "觀望"}
         save_result(db, row)
         if decision["side"] != "WAIT":
@@ -145,6 +149,68 @@ class MarketScanner:
                 "factors": result["factors"], "expires_at": expiration, "news": self.relevant_news(symbol)}
             record_signal(db, payload, settings["cooldown_minutes"])
         return row, result, record
+
+    def collect_qualified_shadow(self, db, interval, mode, marks, status):
+        # Skip completed or recently attempted symbols so the first two do not
+        # starve the rest of the qualified universe on subsequent cycles.
+        rows = db.execute("SELECT symbol,payload FROM scan_results WHERE interval=? AND mode=? AND side!='WAIT' ORDER BY updated_at DESC,symbol", (interval, mode)).fetchall()
+        attempts = 0
+        for row in rows:
+            result = json.loads(row["payload"])
+            key = f'research/{row["symbol"]}/{interval}/{mode}'
+            previous = get_state(db, key, {})
+            same = previous.get("as_of") == result.get("candle_time")
+            if same and previous.get("complete"):
+                continue
+            if time.time() - previous.get("attempted_at", 0) < 600:
+                continue
+            set_state(db, key, {**previous, "attempted_at": time.time()})
+            try:
+                self.collect_shadow(db, row["symbol"], interval, marks)
+            except Exception as exc:
+                db.rollback()
+                status["errors"].append(f'{row["symbol"]} 影子研究暫不可用：{type(exc).__name__}')
+            attempts += 1
+            if attempts >= 2:
+                break
+
+    def collect_shadow(self, db, symbol, interval, marks):
+        """At most two qualified symbols per cycle; primary delivery never waits."""
+        mode = "demo" if self.demo else "live"
+        markets = {}
+        errors = []
+        reference = self.frame_from_cache(db, symbol, interval)
+        if reference is None:
+            return
+        as_of = reference.iloc[-1].close_time
+        previous = get_state(db, f"research/{symbol}/{interval}/{mode}", {})
+        if previous.get("as_of") == str(as_of) and previous.get("complete"):
+            return
+        for period in ("15m", "1h", "4h"):
+            try:
+                frame = self.frame_from_cache(db, symbol, period)
+                if frame is None:
+                    frame = self.fetch_frame(symbol, period)
+                    db.execute("INSERT OR REPLACE INTO scan_cache VALUES (?,?,?,?)", (symbol, period, mode,
+                        frame.to_json(orient="records", date_format="iso")))
+                markets[period] = self.market(symbol, period, frame, marks)
+            except Exception as exc:
+                errors.append(f"{period}：{type(exc).__name__}")
+                if isinstance(exc, RatePause):
+                    break
+        evidence = compare_periods(markets, as_of, mode)
+        evidence.update(symbol=symbol, interval=interval, errors=errors, observed_at=utcnow(), attempted_at=time.time())
+        set_state(db, f"research/{symbol}/{interval}/{mode}", evidence)
+        # Re-read payload while holding a transaction so concurrent AI citations
+        # are preserved; this adds evidence without changing signal identity/side.
+        db.execute("BEGIN IMMEDIATE")
+        for event in db.execute("SELECT id,payload FROM events WHERE symbol=? AND interval=? AND mode=? AND expires_at>?",
+                                (symbol, interval, mode, time.time())).fetchall():
+            payload = json.loads(event["payload"])
+            if payload.get("kind") != "ai_note" and pd.Timestamp(payload["candle_time"]) == as_of:
+                payload["multi_timeframe"] = evidence
+                db.execute("UPDATE events SET payload=? WHERE id=?", (json.dumps(payload, ensure_ascii=False), event["id"]))
+        db.commit()
 
     def relevant_news(self, symbol):
         db = research_db(self.root)
@@ -291,6 +357,7 @@ class MarketScanner:
             db.commit()
             counts = db.execute("SELECT SUM(side!='WAIT'),SUM(json_extract(payload,'$.model_pass')=1) FROM scan_results WHERE interval=? AND mode=?", (interval, mode)).fetchone()
             status["qualified"], status["models_ready"] = int(counts[0] or 0), int(counts[1] or 0)
+            self.collect_qualified_shadow(db, interval, mode, marks, status)
             status["status"] = "部分完成" if status["failed"] or status["deferred"] else "完成"
             status["last_success"] = time.time()
         except Exception as exc:
