@@ -300,6 +300,20 @@ class AutomaticAITests(unittest.TestCase):
             self.assertEqual(summary.call_count, 1)
             db.close()
 
+    @patch("ai_research.requests.post")
+    def test_background_ollama_without_any_api_key(self, post):
+        post.return_value = Mock(ok=True, json=lambda: {"message": {"content": "本機研究"}})
+        with tempfile.TemporaryDirectory() as root:
+            db = connect(root)
+            record_signal(db, fixture_signal())
+            save_settings({"auto_ai_enabled": True, "ai_provider": "ollama"}, root)
+            with patch.dict("os.environ", {}, clear=True):
+                self.assertEqual(generate_pending(db, root), "complete")
+            self.assertEqual(post.call_args.args[0], "http://127.0.0.1:11434/api/chat")
+            self.assertNotIn("headers", post.call_args.kwargs)
+            self.assertEqual(db.execute("SELECT text FROM ai_reports").fetchone()[0], "本機研究")
+            db.close()
+
     def test_failed_candidate_cannot_replace_passing_incumbent(self):
         incumbent = {"research_pass": True, "id": "old"}
         candidate = {"research_pass": False, "id": "new"}

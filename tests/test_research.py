@@ -211,7 +211,7 @@ class AITests(unittest.TestCase):
     def test_no_key_means_no_external_call(self):
         with patch.dict("os.environ", {}, clear=True), patch("ai_research.requests.post") as request:
             with self.assertRaises(ValueError):
-                summarize({}, {}, [])
+                summarize({}, {}, [], provider="openai")
             request.assert_not_called()
 
     def test_ai_receives_source_ids_and_demo_status(self):
@@ -220,7 +220,7 @@ class AITests(unittest.TestCase):
         response = Mock(ok=True)
         response.json.return_value = {"choices": [{"message": {"content": "模擬研究 [1]"}}]}
         with patch("ai_research.requests.post", return_value=response) as request:
-            text = summarize(market, result, [{"title": "ETF", "source": "Test", "url": "https://example.com", "published": "now"}], api_key="unit-test-placeholder")
+            text = summarize(market, result, [{"title": "ETF", "source": "Test", "url": "https://example.com", "published": "now"}], api_key="unit-test-placeholder", provider="openai")
             content = request.call_args.kwargs["json"]["messages"][1]["content"]
             payload = json.loads(content)
         self.assertEqual(payload["data_mode"], "demo")

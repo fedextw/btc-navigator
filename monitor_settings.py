@@ -14,7 +14,8 @@ from runtime_config import STATE_ROOT
 DEFAULTS = {"enabled": True, "interval": "1h", "poll_seconds": 60,
             "min_volume_usdt": 5_000_000, "training_per_cycle": 3,
             "notifications_enabled": False, "channel": "site", "cooldown_minutes": 60,
-            "auto_ai_enabled": False, "ai_daily_limit": 5}
+            "auto_ai_enabled": False, "ai_daily_limit": 5,
+            "ai_provider": "ollama", "ollama_model": "qwen3:8b"}
 
 
 def load_settings(root=STATE_ROOT):
@@ -33,6 +34,10 @@ def save_settings(values, root=STATE_ROOT):
         raise ValueError("啟用狀態不正確")
     if not 1 <= data["ai_daily_limit"] <= 50 or not isinstance(data["auto_ai_enabled"], bool):
         raise ValueError("AI 自動解讀設定不正確")
+    if data["ai_provider"] not in ("ollama", "openai"):
+        raise ValueError("AI 供應者不正確")
+    if not isinstance(data["ollama_model"], str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}", data["ollama_model"]) or "cloud" in data["ollama_model"].lower():
+        raise ValueError("請填本機模型名稱，例如 qwen3:4b；不支援 cloud 模型")
     save_record(Path(root) / "monitor-settings.json", data)
     return data
 

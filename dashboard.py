@@ -324,14 +324,22 @@ def news_tab(market, result, demo):
                     f'<div style="margin-top:12px"><a class="news-title" href="{esc(article["url"])}" target="_blank" rel="noopener noreferrer">{esc(article["title"])}</a></div>'
                     f'<div class="news-meta">{esc(article["published"])}</div></div>', unsafe_allow_html=True)
     st.markdown("### AI 研究助理")
-    st.caption("可選：透過 OpenAI API 對當前指標與新聞標題做繁體中文解讀。資料會傳送給模型服務，可能產生 API 費用。AI 不會讀取新聞全文或替你下單。")
-    available = bool(os.environ.get("AI_API_KEY") or st.session_state.get("ai_session_key"))
+    st.caption("可選：以 Ollama 本機模型或 OpenAI 解讀指標、新聞標題與背景。供應者在全市場設定選擇；本機模式不傳送至 OpenAI。AI 不會讀取新聞全文或替你下單。")
+    from monitor_settings import load_settings, load_credentials
+    ai_settings = load_settings()
+    try:
+        saved_key = load_credentials().get("ai_api_key") if ai_settings["ai_provider"] == "openai" else None
+    except (ValueError, OSError):
+        saved_key = None
+    ai_key = st.session_state.get("ai_session_key") or saved_key
+    available = ai_settings["ai_provider"] == "ollama" or bool(os.environ.get("AI_API_KEY") or ai_key)
+    st.caption("目前文字模型：" + ai_settings["ai_provider"] + (" / " + ai_settings["ollama_model"] if ai_settings["ai_provider"] == "ollama" else ""))
     if not available:
         st.info("尚未設定 AI_API_KEY。目前使用透明的規則評分，不會假稱為 AI 預測。可在環境設定安全加入金鑰；不要在聊天中提供。")
     if st.button("產生本次 AI 研究摘要", disabled=not available, type="primary"):
         try:
             with st.spinner("AI 正在解讀本次資料…"):
-                text = summarize(market, result, articles, st.session_state.get("ai_session_key"), context)
+                text = summarize(market, result, articles, ai_key, context, provider=ai_settings["ai_provider"], model=ai_settings["ollama_model"])
             st.session_state["ai_report"] = dict(text=text, symbol=market["symbol"], interval=market["interval"],
                 mode=market["mode"], candle=str(result["frame"].iloc[-1].close_time), sources=articles[:12])
         except Exception as exc:
@@ -412,7 +420,7 @@ def render_dashboard(symbol, interval, mode):
 | 方向門檻 | ≥ +4 偏多、≤ −4 偏空，其餘觀望；過期或缺失 K 線強制觀望 |
 | SMC／ICT | 前 20 根區間突破與掃單、區間中點、三根 K 線 FVG（保留未完全回補區域） |
 | 資金觀察 | 資金費率與名目 OI；不等同實際流入量或主力多空倉位 |
-| AI | 可選 OpenAI 研究摘要；未設定金鑰時只有規則模型 |
+| AI | 可選 Ollama 本機／OpenAI 文字摘要；另有本機數值學習模型 |
 | 持續學習 | 邏輯迴歸定期重訓、驗證集選參數、保存版本；收集到的 K 線以最近最多 5,000 根訓練，不自動改寫程式碼 |
 | 驗證程度 | 學習頁提供有限歷史的時間切分回測與未來紙上紀錄；未經實盤績效驗證 |
 | 全市場 | 全市場頁提供動態 USDT 永續合約掃描、排程學習、網站訊號與 Telegram 推播 |
@@ -466,8 +474,8 @@ def main():
         st.divider()
         with st.expander("AI 摘要設定（選用）"):
             st.text_input("OpenAI API Key", type="password", key="ai_session_key", help="只保留於本次網頁連線，不寫入模型、紀錄或壓縮檔。也可用 AI_API_KEY 環境變數。")
-            st.caption("僅在手動按下產生摘要時呼叫，可能產生 API 費用。學習與監控不需此金鑰。")
-        st.markdown('<span class="tag">RESEARCH BUILD · 0.2</span>', unsafe_allow_html=True)
+            st.caption("Ollama 不需要此金鑰；到全市場設定選擇供應者。OpenAI 手動摘要才可能產生 API 費用。")
+        st.markdown('<span class="tag">RESEARCH BUILD · 0.3</span>', unsafe_allow_html=True)
         st.caption("頁面開啟期間每 60 秒刷新。\n\n公開資料不需交易所 API Key。")
         st.caption("背景狀態與推播設定請看「全市場訊號」。網頁的單幣選擇不會限制背景掃描範圍。")
     if workspace == "全市場訊號":

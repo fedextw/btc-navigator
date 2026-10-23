@@ -59,7 +59,10 @@ def settings_panel():
             cooldown = st.number_input("同幣同方向冷卻分鐘", min_value=0, max_value=1440, value=int(settings["cooldown_minutes"]))
             training = st.slider("每輪最多準備／重訓模型數", 1, 10, int(settings["training_per_cycle"]))
             st.markdown("**自動 AI 文字解讀（選用，與本機學習模型分開）**")
-            auto_ai = st.checkbox("啟用付費 AI 自動解讀合格訊號（可能產生 API 費用）", value=settings["auto_ai_enabled"])
+            provider = st.selectbox("文字 AI 供應者", ["ollama", "openai"], index=["ollama", "openai"].index(settings["ai_provider"]), format_func=lambda x: "Ollama 本機（免 API 費）" if x == "ollama" else "OpenAI（付費 API）")
+            local_model = st.text_input("Ollama 本機模型名稱", value=settings["ollama_model"])
+            auto_ai = st.checkbox("啟用 AI 自動解讀合格訊號", value=settings["auto_ai_enabled"])
+            st.caption("Ollama 須先安裝並下載模型；只連本機 127.0.0.1:11434，不會自動改用 OpenAI。OpenAI 模式可能產生 API 費用。")
             ai_key = st.text_input("OpenAI API Key（選用）", type="password", help="留空保留已儲存金鑰。背景程序需要保存後才能讀取。")
             quota = st.number_input("每日最多 AI 解讀次數（台北日界）", 1, 50, int(settings["ai_daily_limit"]))
             st.caption("Telegram 主訊號不等待文字模型；若啟用，AI 會另讀指標、新聞標題與市場背景，在網站補上解讀，主訊號已送達時再推播補充。")
@@ -67,16 +70,24 @@ def settings_panel():
                 try:
                     if enabled and not ((token or token_for_lookup or credentials.get("telegram_token")) and (chat or credentials.get("telegram_chat"))):
                         raise ValueError("請填妥 Telegram Token 與 Chat ID 後再啟用推播")
-                    if auto_ai and not (ai_key or stored.get("ai_api_key") or __import__("os").environ.get("AI_API_KEY")):
+                    if auto_ai and provider == "openai" and not (ai_key or stored.get("ai_api_key") or __import__("os").environ.get("AI_API_KEY")):
                         raise ValueError("啟用自動文字解讀前，請先設定 OpenAI API Key")
                     save_credentials({"telegram_token": token or token_for_lookup, "telegram_chat": chat, "ai_api_key": ai_key})
                     save_settings({"enabled": active, "interval": interval, "min_volume_usdt": min_volume,
                         "notifications_enabled": enabled, "channel": "telegram" if enabled else "site",
                         "cooldown_minutes": cooldown, "training_per_cycle": training,
-                        "auto_ai_enabled": auto_ai, "ai_daily_limit": quota})
+                        "auto_ai_enabled": auto_ai, "ai_daily_limit": quota,
+                        "ai_provider": provider, "ollama_model": local_model})
                     st.success("設定已保存。背景程序下一輪會套用；推播設定每幾秒讀取一次。")
                 except (ValueError, OSError) as exc:
                     st.error(str(exc))
+        if st.button("檢查已儲存的 Ollama 連線與模型"):
+            from ai_research import check_ollama
+            try:
+                check_ollama(load_settings()["ollama_model"])
+                st.success("Ollama 已連線，指定模型已安裝。可到單幣研究產生摘要測試推論。")
+            except (ValueError, RuntimeError) as exc:
+                st.error(str(exc))
         if st.button("發送 Telegram 測試通知"):
             try:
                 send_message("◈ BTC Navigator 測試通知\n手機推播已連通。這是連線測試，不是交易訊號。", effective_credentials())

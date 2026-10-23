@@ -16,9 +16,9 @@ def generate_pending(db, root=STATE_ROOT, summarizer=summarize):
     settings = load_settings(root)
     if not settings["auto_ai_enabled"]:
         return "disabled"
-    credentials = load_credentials(root)
-    key = os.environ.get("AI_API_KEY") or credentials.get("ai_api_key")
-    if not key:
+    credentials = load_credentials(root) if settings["ai_provider"] == "openai" else {}
+    key = (os.environ.get("AI_API_KEY") or credentials.get("ai_api_key")) if settings["ai_provider"] == "openai" else None
+    if settings["ai_provider"] == "openai" and not key:
         return "missing_ai_key"
     day = datetime.now(ZoneInfo("Asia/Taipei")).date().isoformat()
     db.execute("BEGIN IMMEDIATE")
@@ -55,7 +55,8 @@ def generate_pending(db, root=STATE_ROOT, summarizer=summarize):
               "score": payload["score"], "side": payload["side"], "factors": payload["factors"],
               "reasons": ["已通過研究篩選，未經實盤驗證", "新聞只有標題，不是全文"]}
     try:
-        text = summarizer(market, result, articles, key, context)
+        text = summarizer(market, result, articles, key, context,
+                          provider=settings["ai_provider"], model=settings["ollama_model"])
         db.execute("UPDATE ai_reports SET status='complete',text=? WHERE event_id=?", (text, event["id"]))
         # Only supplement an already successfully delivered primary alert.
         delivered = db.execute("SELECT status FROM deliveries WHERE event_id=? AND channel='telegram'", (event["id"],)).fetchone()

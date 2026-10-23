@@ -1,6 +1,6 @@
 # 一鍵啟動包下載
 
-目前為 **0.2 全市場自動研究／模擬學習版**。[完整首次使用指南與 Telegram 設定](../使用指南.md)。
+目前為 **0.3 Ollama 本機 AI／全市場研究版**。[完整首次使用指南與 Telegram 設定](../使用指南.md)。
 
 **[點此下載 BTC-Navigator.zip](https://github.com/fedextw/btc-navigator/raw/refs/heads/codex/btc-navigator-delivery/releases/BTC-Navigator.zip)**
 
@@ -14,7 +14,7 @@
 
 首次會下載套件，之後啟動本機網站與背景研究。操作說明及驗證限制在壓縮檔內的 `README.md`、`驗證報告.md`。
 
-首次啟動到「全市場訊號」設定 Telegram Token／Chat ID，保存後先按測試通知。OpenAI 自動解讀為選用，需自己的 API Key、啟用及設定每日上限。既有使用者可把舊版 `.local-state` 複製到新版以保留學習紀錄，不要分享該資料夾。
+首次啟動到「全市場訊號」設定 Telegram Token／Chat ID，保存後先按測試通知。Ollama 本機解讀不需 OpenAI Key；先依 [本機 AI 教程](../Ollama本機AI操作教程.md) 安裝並下載模型，再在網站設定、儲存與測試。既有使用者可把舊版 `.local-state` 複製到新版以保留學習紀錄，不要分享該資料夾。
 
 這裡提供的是可下載程式，不是對外託管的網站。GitHub 不會直接執行 Streamlit；公開網站仍需部署到持續運行的 Python 主機。預設全市場 USDT 永續合約、1h、每輪 60 秒，首次模型排隊準備；符合條件才發研究訊號。依你的選擇只做紙上模擬，不能保證每天勝率或獲利都增加。
 
