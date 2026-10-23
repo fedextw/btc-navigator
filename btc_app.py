@@ -115,3 +115,8 @@ def calc_score(prices, fr, oi) -> ScoreResult:
     base = trend + mom + 0.5 * (fr_bias + oi_bias)
     risk_mul = 0.8 if abs(base) > 1.5 else 1.0
     return ScoreResult(classify_score(base * risk_mul), base, risk_mul)
+
+
+if __name__ == "__main__":
+    from dashboard import main
+    main()
