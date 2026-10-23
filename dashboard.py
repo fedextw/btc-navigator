@@ -19,46 +19,11 @@ from runtime_config import STATE_ROOT
 from context_data import load_context
 from decision_engine import consensus
 from learning_lab import model_path, load_record
-from scanner_ui import scanner_page, discovered_symbols
+from scanner_ui import scanner_page, discovered_symbols, settings_panel
 
 
-STYLE = """
-<style>
-:root {color-scheme:dark;}
-.stApp {background:#090e17;color:#e4eaf4;}
-[data-testid="stHeader"] {background:rgba(9,14,23,.9);}
-[data-testid="stSidebar"] {background:#0e1522;border-right:1px solid #202b3c;}
-[data-testid="stSidebar"] {font-family:Inter,"Noto Sans TC",sans-serif;}
-.block-container {max-width:1500px;padding-top:2rem;padding-bottom:3rem;}
-h1,h2,h3 {letter-spacing:-.025em;color:#edf3fc!important;}
-.eyebrow {font-size:11px;letter-spacing:.16em;color:#8796af;font-weight:700;margin-bottom:12px;}
-.brand {font-size:24px;font-weight:800;letter-spacing:-1px;margin:0 0 3px;}
-.brand span {color:#38e5bc;}
-.brand-sub {color:#8392ab;font-size:11px;letter-spacing:.16em;margin-bottom:30px;}
-.hero-title {font-size:36px;font-weight:750;line-height:1.3;letter-spacing:-1px;margin:0 0 8px;}
-.subtle {color:#8c9bb3;font-size:13px;line-height:1.8;}
-.tag {display:inline-block;padding:5px 10px;border-radius:6px;background:#192536;color:#a8b8d0;font-size:11px;font-weight:650;letter-spacing:.04em;}
-.tag.live {background:#10352e;color:#3de2b7;}.tag.demo {background:#3b2b18;color:#ffc879;}
-.card {background:#101927;border:1px solid #243047;border-radius:12px;padding:20px 22px;margin-bottom:16px;}
-.metric-label {color:#95a3ba;font-size:12px;}.metric-value {color:#f0f5fc;font-size:28px;font-weight:700;margin-top:8px;letter-spacing:-.7px;}
-.metric-foot {font-size:11px;color:#7788a4;margin-top:7px;}.up {color:#38e5bc;}.down {color:#fb8393;}
-.signal-title {font-size:34px;font-weight:800;letter-spacing:.02em;}
-.signal-top {display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
-.rule {height:1px;background:#263248;margin:16px 0;}
-.factor {display:flex;justify-content:space-between;gap:16px;padding:11px 0;border-bottom:1px solid #202c40;font-size:13px;}
-.factor:last-child {border-bottom:0;}.factor small{color:#899bb5;display:block;margin-top:5px;line-height:1.5;}
-.news-title {font-size:16px;line-height:1.7;color:#e5edf9;text-decoration:none!important;font-weight:600;}
-.news-title:hover {color:#38e5bc;}.news-meta{color:#8a9bb6;font-size:11px;line-height:1.7;margin-top:10px;}
-.section-title {font-size:19px;font-weight:700;margin:14px 0;}
-.footer {border-top:1px solid #202c40;color:#7385a1;font-size:11px;padding-top:20px;margin-top:28px;line-height:1.9;}
-[data-testid="stMetric"] {background:#101927;border:1px solid #243047;padding:16px;border-radius:10px;}
-button[kind="primary"] {background:#36dbb2!important;color:#081914!important;border:0!important;font-weight:700!important;}
-[data-baseweb="tab-list"] {gap:24px;border-bottom:1px solid #243047;}
-[data-baseweb="tab"] {color:#94a4bb!important;padding-bottom:16px;}
-[aria-selected="true"][data-baseweb="tab"] {color:#3de2b7!important;}
-[data-testid="stAlert"] {border-radius:10px;}
-</style>
-"""
+from terminal_theme import STYLE
+from terminal_ui import hero, learning_page, health_page
 
 
 def esc(value):
@@ -448,21 +413,28 @@ def main():
         st.session_state["selected_symbol"] = st.session_state.pop("pending_symbol")
     st.session_state.setdefault("workspace", "全市場訊號")
     with st.sidebar:
-        st.markdown('<div class="brand">◈ BTC<span>NAVIGATOR</span></div><div class="brand-sub">YOUR MARKET. IN FOCUS.</div>', unsafe_allow_html=True)
+        st.markdown('<div class="brand">◈ BTC<span>NAVIGATOR</span></div><div class="brand-sub">INTELLIGENCE / TRADING RESEARCH</div>', unsafe_allow_html=True)
         st.caption("工作區 / MARKET WORKSPACE")
-        workspace = st.radio("功能", ["全市場訊號", "單幣研究"], key="workspace", index=None)
-        default_symbol = os.environ.get("BTC_DEFAULT_SYMBOL", "BTCUSDT")
-        symbols = sorted(set(SYMBOLS) | set(discovered_symbols()) | {default_symbol} | {st.session_state.get("selected_symbol", default_symbol)})
-        st.session_state.setdefault("selected_symbol", default_symbol)
-        symbol = st.selectbox("交易對", symbols, index=None, key="selected_symbol", accept_new_options=True)
-        symbol = symbol.strip().upper()
-        intervals = ["15m", "1h", "4h"]
-        default_interval = os.environ.get("BTC_DEFAULT_INTERVAL", "1h")
-        interval = st.selectbox("分析週期", intervals, index=intervals.index(default_interval) if default_interval in intervals else 1)
-        labels = ["自動（即時優先）", "僅即時資料", "示範資料"]
-        selected = st.selectbox("資料模式", labels, index=2 if os.environ.get("BTC_NAVIGATOR_DEMO") == "1" else 0)
-        mode = dict(zip(labels, ["auto", "live", "demo"]))[selected]
-        st.caption("交易所：Binance USDⓈ-M 永續合約")
+        workspace = st.radio("功能", ["全市場訊號", "單幣研究", "學習與績效", "系統健康", "設定中心"], key="workspace", index=None)
+        symbol = st.session_state.get("selected_symbol", os.environ.get("BTC_DEFAULT_SYMBOL", "BTCUSDT"))
+        interval = os.environ.get("BTC_DEFAULT_INTERVAL", "1h")
+        mode = "demo" if os.environ.get("BTC_NAVIGATOR_DEMO") == "1" else "auto"
+        if workspace == "單幣研究":
+            default_symbol = os.environ.get("BTC_DEFAULT_SYMBOL", "BTCUSDT")
+            symbols = sorted(set(SYMBOLS) | set(discovered_symbols()) | {default_symbol} | {st.session_state.get("selected_symbol", default_symbol)})
+            st.session_state.setdefault("selected_symbol", default_symbol)
+            symbol = st.selectbox("交易對", symbols, index=None, key="selected_symbol", accept_new_options=True)
+            symbol = symbol.strip().upper()
+            intervals = ["15m", "1h", "4h"]
+            default_interval = os.environ.get("BTC_DEFAULT_INTERVAL", "1h")
+            interval = st.selectbox("分析週期", intervals, index=intervals.index(default_interval) if default_interval in intervals else 1)
+            labels = ["自動（即時優先）", "僅即時資料", "示範資料"]
+            selected = st.selectbox("資料模式", labels, index=2 if os.environ.get("BTC_NAVIGATOR_DEMO") == "1" else 0)
+            mode = dict(zip(labels, ["auto", "live", "demo"]))[selected]
+            st.caption("交易所：Binance USDⓈ-M 永續合約")
+        else:
+            st.caption("BINANCE / USDT PERPETUAL")
+            st.caption("單幣選擇與行情來源請到「單幣研究」；全市場週期在設定中心管理。")
         if st.button("↻ 立即更新資料", width="stretch"):
             cached_market.clear()
             cached_news.clear()
@@ -475,11 +447,18 @@ def main():
         with st.expander("AI 摘要設定（選用）"):
             st.text_input("OpenAI API Key", type="password", key="ai_session_key", help="只保留於本次網頁連線，不寫入模型、紀錄或壓縮檔。也可用 AI_API_KEY 環境變數。")
             st.caption("Ollama 不需要此金鑰；到全市場設定選擇供應者。OpenAI 手動摘要才可能產生 API 費用。")
-        st.markdown('<span class="tag">RESEARCH BUILD · 0.3</span>', unsafe_allow_html=True)
+        st.markdown('<span class="tag">RESEARCH BUILD · 0.4</span>', unsafe_allow_html=True)
         st.caption("頁面開啟期間每 60 秒刷新。\n\n公開資料不需交易所 API Key。")
-        st.caption("背景狀態與推播設定請看「全市場訊號」。網頁的單幣選擇不會限制背景掃描範圍。")
+        st.caption("背景狀態請看「全市場訊號／系統健康」，推播與模型設定請到「設定中心」。")
     if workspace == "全市場訊號":
         scanner_page()
+    elif workspace == "學習與績效":
+        learning_page()
+    elif workspace == "系統健康":
+        health_page()
+    elif workspace == "設定中心":
+        hero("CONTROL / PREFERENCES", "設定你的研究工作站。", "管理全市場週期、模型與 Telegram。設定儲存在你的電腦，供背景程序讀取。", [("LOCAL SETTINGS", "")])
+        settings_panel()
     else:
         render_dashboard(symbol, interval, mode)
 

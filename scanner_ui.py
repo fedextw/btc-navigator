@@ -10,6 +10,7 @@ from monitor_settings import load_settings, save_settings, load_credentials, sav
 from notifications import send_message, DeliveryError
 from runtime_config import STATE_ROOT
 from signal_store import connect, get_state, latest_events
+from terminal_ui import hero, section, opportunities, paper_metrics
 
 
 def discovered_symbols():
@@ -113,7 +114,7 @@ def status_panel():
             if status.get("mode") == "demo":
                 st.warning("示範模式只掃描 6 個合成交易對，不代表 Binance 全市場；不會產生外部交易訊號推播。")
             a, b, c, d = st.columns(4)
-            a.metric("交易所合約數", status.get("universe", 0))
+            a.metric("交易所合約數", f'{status.get("universe", 0):,}')
             b.metric("本輪已分析", status.get("analyzed", 0))
             c.metric("通過研究門檻的模型", status.get("models_ready", 0))
             d.metric("本輪資料失敗／延後", f'{status.get("failed", 0)} / {status.get("deferred", 0)}')
@@ -131,76 +132,69 @@ def status_panel():
         rows = [json.loads(r[0]) for r in db.execute("SELECT payload FROM scan_results WHERE interval=? AND mode=? ORDER BY ABS(score) DESC,symbol", (interval, mode))]
         if mode == "live" and active:
             rows = [row for row in rows if row["symbol"] in active]
-        filter_text = st.text_input("搜尋全市場交易對", placeholder="例如 ETH、SOL、1000PEPE…")
-        only_setups = st.checkbox("只顯示規則偏多／偏空的候選", value=False)
-        selected = [r for r in rows if filter_text.upper() in r["symbol"] and (not only_setups or r["rule_side"] != "WAIT")]
-        if selected:
-            table = pd.DataFrame([{"交易對": r["symbol"], "綜合方向": r["side"], "規則": r["rule_side"],
-                "分數": r["score"], "模型": r.get("model_side") or "尚未準備", "狀態": r["status"],
-                "標記價格": r.get("mark_price"), "24h成交額": r.get("volume_24h"),
-                "觀望原因": "、".join(r.get("reasons", [])), "更新UTC": r["updated_at"]} for r in selected])
-            st.dataframe(table, hide_index=True, width="stretch", height=380)
-            inspect = st.selectbox("選擇幣種深入研究", [r["symbol"] for r in selected], key="scanner_inspect_symbol")
-            if st.button("開啟單幣分析"):
-                st.session_state["pending_symbol"] = inspect
-                st.session_state["pending_workspace"] = "單幣研究"
-                st.rerun()
-        else:
-            st.caption("尚無符合條件的掃描結果。首次需先取得全市場行情並排隊準備模型。")
-        st.markdown("### 訊號中心與發送紀錄")
-        events = latest_events(db, 50)
-        if not events:
-            st.info("目前沒有符合全部條件的研究訊號。模型未準備好、未通過檢驗或規則不一致時，系統會保持觀望。")
-        for event in events[:20]:
-            payload = json.loads(event["payload"])
-            delivered = db.execute("SELECT status,attempts,error FROM deliveries WHERE event_id=? AND channel='telegram'", (event["id"],)).fetchone()
-            state = delivered[0] if delivered else "待推播" if settings["notifications_enabled"] else "僅網站"
-            expired = event["expires_at"] < time.time()
-            stamp = datetime.fromtimestamp(event["created_at"], ZoneInfo("Asia/Taipei")).strftime("%m/%d %H:%M:%S")
-            heading = f'{payload["symbol"]} · {payload["side"]} · {stamp} · {"已過期" if expired else "研究訊號"} · {state}'
-            with st.expander(heading):
-                if payload.get("kind") == "ai_note":
-                    st.markdown(payload["ai_text"])
-                else:
-                    st.write(f'參考價 {payload["entry"]:g} ／ 假設停損 {payload["stop"]:g}')
-                    st.write("研究目標：" + " / ".join(f"{v:g}" for v in payload["targets"]))
-                    st.caption("模型上漲輸出不等同勝率；價格是訊號偵測時的研究價位，不是成交回報。")
-                    for factor in payload.get("factors", []):
-                        st.write(f'{factor["name"]}：{factor["evidence"]}')
-                    ai = db.execute("SELECT status,text,error FROM ai_reports WHERE event_id=?", (event["id"],)).fetchone()
-                    if ai:
-                        st.markdown(ai[1]) if ai[0] == "complete" else st.caption("AI 解讀：" + ai[0])
-                if delivered and delivered[2]:
-                    st.caption("發送狀態：" + delivered[2] + "。unknown 表示結果不明，系統不會自動重送以免重複。")
-                for index, source in enumerate(payload.get("ai_sources", []), 1):
-                    st.caption(f'[{index}] {source["source"]}：{source["title"]}')
-                    st.link_button("新聞原始來源", source["url"], key=f'ai-ref-{event["id"]}-{index}')
+        if status.get("universe", 0):
+            progress = min(1.0, status.get("analyzed", 0) / status["universe"])
+            st.progress(progress, text=f'本輪分析覆蓋 {progress:.0%} · 已分析不代表已通過訊號條件')
+        opportunities(rows)
+        radar_tab, signal_tab, learning_tab = st.tabs(["市場雷達", "訊號中心", "學習概況"])
+        with radar_tab:
+            filter_text = st.text_input("搜尋全市場交易對", placeholder="例如 ETH、SOL、1000PEPE…")
+            only_setups = st.checkbox("只顯示規則偏多／偏空的候選", value=False)
+            selected = [r for r in rows if filter_text.upper() in r["symbol"] and (not only_setups or r["rule_side"] != "WAIT")]
+            if selected:
+                table = pd.DataFrame([{"交易對": r["symbol"], "綜合方向": r["side"], "規則": r["rule_side"],
+                    "分數": r["score"], "模型": r.get("model_side") or "尚未準備", "狀態": r["status"],
+                    "標記價格": r.get("mark_price"), "24h成交額": r.get("volume_24h"),
+                    "觀望原因": "、".join(r.get("reasons", [])), "更新UTC": r["updated_at"]} for r in selected])
+                st.dataframe(table, hide_index=True, width="stretch", height=380)
+                inspect = st.selectbox("選擇幣種深入研究", [r["symbol"] for r in selected], key="scanner_inspect_symbol")
+                if st.button("開啟單幣分析"):
+                    st.session_state["pending_symbol"] = inspect
+                    st.session_state["pending_workspace"] = "單幣研究"
+                    st.rerun()
+            else:
+                st.caption("尚無符合條件的掃描結果。首次需先取得全市場行情並排隊準備模型。")
+        with signal_tab:
+            st.markdown("### 訊號中心與發送紀錄")
+            events = latest_events(db, 50)
+            if not events:
+                st.info("目前沒有符合全部條件的研究訊號。模型未準備好、未通過檢驗或規則不一致時，系統會保持觀望。")
+            for event in events[:20]:
+                payload = json.loads(event["payload"])
+                delivered = db.execute("SELECT status,attempts,error FROM deliveries WHERE event_id=? AND channel='telegram'", (event["id"],)).fetchone()
+                state = delivered[0] if delivered else "待推播" if settings["notifications_enabled"] else "僅網站"
+                expired = event["expires_at"] < time.time()
+                stamp = datetime.fromtimestamp(event["created_at"], ZoneInfo("Asia/Taipei")).strftime("%m/%d %H:%M:%S")
+                heading = f'{payload["symbol"]} · {payload["side"]} · {stamp} · {"已過期" if expired else "研究訊號"} · {state}'
+                with st.expander(heading):
+                    if payload.get("kind") == "ai_note":
+                        st.markdown(payload["ai_text"])
+                    else:
+                        st.write(f'參考價 {payload["entry"]:g} ／ 假設停損 {payload["stop"]:g}')
+                        st.write("研究目標：" + " / ".join(f"{v:g}" for v in payload["targets"]))
+                        st.caption("模型上漲輸出不等同勝率；價格是訊號偵測時的研究價位，不是成交回報。")
+                        for factor in payload.get("factors", []):
+                            st.write(f'{factor["name"]}：{factor["evidence"]}')
+                        ai = db.execute("SELECT status,text,error FROM ai_reports WHERE event_id=?", (event["id"],)).fetchone()
+                        if ai:
+                            st.markdown(ai[1]) if ai[0] == "complete" else st.caption("AI 解讀：" + ai[0])
+                    if delivered and delivered[2]:
+                        st.caption("發送狀態：" + delivered[2] + "。unknown 表示結果不明，系統不會自動重送以免重複。")
+                    for index, source in enumerate(payload.get("ai_sources", []), 1):
+                        st.caption(f'[{index}] {source["source"]}：{source["title"]}')
+                        st.link_button("新聞原始來源", source["url"], key=f'ai-ref-{event["id"]}-{index}')
         summaries = [json.loads(r["payload"]) for r in db.execute("SELECT symbol,payload FROM paper_metrics WHERE interval=? AND mode=?", (interval,mode))
                      if mode == "demo" or not active or r["symbol"] in active]
-        trades = sum(s.get("trades", 0) for s in summaries)
-        wins = sum(s.get("wins", 0) for s in summaries)
-        net_sum = sum(s.get("sum_net_returns", 0) for s in summaries)
-        pending = sum(s.get("pending", 0) for s in summaries)
-        unresolved = sum(s.get("unresolved", 0) for s in summaries)
-        st.markdown("### 持續模擬與學習紀錄")
-        a, b, c, d = st.columns(4)
-        a.metric("已結算紙上交易", trades)
-        b.metric("紙上交易勝率", f'{wins / trades * 100:.1f}%' if trades else "尚無樣本")
-        c.metric("等待未來行情／無法還原", f"{pending} / {unresolved}")
-        d.metric("平均每筆淨報酬 · 1× 名目", f'{net_sum / trades * 100:+.3f}%' if trades else "尚無樣本")
-        st.caption("統計涵蓋目前掃描範圍的模型。不同幣種可能同時持倉，不能將逐筆報酬直接相乘當成投資組合獲利。各幣種的模型、回測與交易明細可在單幣研究查看。")
-        evolution = [json.loads(row[0]) for row in db.execute("SELECT payload FROM scan_state WHERE name LIKE 'evolution/%'")]
-        if evolution:
-            with st.expander("模型自我更新與晉升紀錄"):
-                st.dataframe(pd.DataFrame([{"決策": a["decision"], "原因": a["reason"],
-                    "現行模型": a.get("incumbent_id", "首次"), "候選模型": a.get("candidate_id", "—")} for a in evolution]), hide_index=True)
+        with learning_tab:
+            section("持續模擬與學習紀錄", "FORWARD PAPER / 1× NOTIONAL")
+            paper_metrics(summaries)
+            st.info("左側「學習與績效」提供訓練軌跡、逐筆交易與成本壓力測試；「系統健康」提供背景程序與資料診斷。")
     finally:
         db.close()
 
 
 def scanner_page():
-    st.markdown("# 全市場訊號終端")
-    st.caption("動態追蹤 Binance 所有交易中、USDT 計價且以 USDT 保證金的永續合約。自動研究、模擬學習、條件篩選與 Telegram 推播。")
-    st.info("1h 訊號在 K 線收盤後判斷，預設每 60 秒啟動一輪；全市場耗時與速率限制會增加延遲。首次模型需排隊準備，不會立即對所有幣種產生合格訊號。")
-    settings_panel()
+    settings = load_settings()
+    hero("NAVIGATOR / MARKET INTELLIGENCE", "把市場雜訊，轉成可驗證的決策。", "全 USDT 永續合約掃描、模型共識與持續紙上驗證，在同一個研究工作站。", [(settings["interval"].upper() + " / 已收盤 K 線", ""), ("紙上研究模式", "green"), ("僅本機存取", "")])
+    st.caption("每輪預設 60 秒；首次模型需排隊，API 限流會增加延遲。監控、Ollama 與 Telegram 設定已移到左側「設定中心」。")
     status_panel()

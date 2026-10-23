@@ -185,6 +185,8 @@ class MarketScanner:
             history.to_csv(dataset, index=False)
             save_record(self.root / "models" / "archive" / f'{fitted["id"]}.json', fitted)
             selected, audit = select_model(record, fitted, history)
+            audit.update(symbol=symbol, interval=interval, mode=market["mode"], observed_at=utcnow(),
+                         incumbent_id=record["id"] if record else None, candidate_id=fitted["id"])
             fitted["promotion"] = audit
             save_record(self.root / "models" / "archive" / f'{fitted["id"]}.json', fitted)
             save_record(model_path(self.root / "models", symbol, interval, self.demo), selected)

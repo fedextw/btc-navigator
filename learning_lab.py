@@ -246,6 +246,8 @@ def _update_paper_journal(path, record, candles):
     closed = [row for row in rows if row["status"] == "closed"]
     journal["summary"] = {"trades": len(closed), "wins": sum(row["net_return"] > 0 for row in closed),
         "sum_net_returns": sum(row["net_return"] for row in closed),
+        "gross_profit": sum(max(row["net_return"], 0) for row in closed),
+        "gross_loss": -sum(min(row["net_return"], 0) for row in closed),
         "pending": sum(row["status"] == "pending" for row in rows),
         "unresolved": sum(row["status"] == "unresolved" for row in rows)}
     journal["last_processing_key"] = processing_key

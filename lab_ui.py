@@ -109,7 +109,7 @@ def learning_tab(market, result):
                 st.dataframe(pd.DataFrame(journal["rows"]).tail(30), hide_index=True, width="stretch")
             else:
                 st.caption("尚無未來交易。模型訓練視窗結束後，有新收盤 K 線且方向條件成立才會記錄，下一根開盤才可成交。")
-            st.caption("模型重訓不會回寫既有紙上預測。網頁開啟時會更新；持續收集可另用 collector.py 背景程序。資料中斷導致無法還原進場時，標記 unresolved，不補造績效。")
+            st.caption("模型重訓不會回寫既有紙上預測。使用 START.bat 啟動時會由全市場背景程序持續更新。資料中斷導致無法還原進場時，標記 unresolved，不補造績效。")
         except (ValueError, OSError, KeyError) as exc:
             st.error(f"紙上紀錄暫時無法更新：{type(exc).__name__}")
     else:
