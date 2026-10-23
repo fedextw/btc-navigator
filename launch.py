@@ -35,7 +35,7 @@ def main():
     parser.add_argument("--demo", action="store_true", help="合成行情模式，不對外收集資料")
     parser.add_argument("--no-browser", action="store_true")
     parser.add_argument("--port", type=int, default=8501)
-    parser.add_argument("--symbol", choices=["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "DOGEUSDT"], default="BTCUSDT")
+    parser.add_argument("--symbol", default="BTCUSDT", help="單幣研究預設顯示的 USDT 交易對；不限制全市場掃描")
     parser.add_argument("--interval", choices=["15m", "1h", "4h"], default="1h")
     parser.add_argument("--check", action="store_true", help="安裝並檢查相依套件後結束")
     parser.add_argument("--ready", action="store_true", help=argparse.SUPPRESS)
@@ -106,19 +106,22 @@ def main():
             time.sleep(.5)
         if not ready:
             raise RuntimeError("網站未在 40 秒內就緒。")
-        worker_log = (state / "collector.log").open("a", encoding="utf-8")
-        command = [sys.executable, "collector.py", "--train", "--symbol", args.symbol, "--interval", args.interval]
+        from monitor_settings import load_settings, save_settings
+        if not (state / "monitor-settings.json").exists():
+            save_settings({"interval": args.interval}, state)
+        worker_log = (state / "scanner.log").open("a", encoding="utf-8")
+        command = [sys.executable, "scanner.py"]
         if args.demo:
             command.append("--demo")
         worker = subprocess.Popen(command, cwd=ROOT, env=environment, stdout=worker_log, stderr=subprocess.STDOUT)
-        print(f"網站已啟動。監控 {args.symbol} / {args.interval}，每 60 秒收集；滿 24 小時且有 24 根新 K 線才重訓。", flush=True)
+        print("網站已啟動。背景會動態掃描全 Binance USDT 永續合約，設定與 Telegram 推播請到「全市場訊號」。", flush=True)
         print("保留此視窗即可持續運作；關閉瀏覽器不會停止。按 Ctrl+C 停止網站與背景程序。", flush=True)
         print("這是研究與紙上模擬系統，沒有自動下單功能。", flush=True)
         if not args.no_browser:
             webbrowser.open(f"http://127.0.0.1:{args.port}")
         while ui.poll() is None:
             if worker.poll() is not None:
-                raise RuntimeError("背景研究程序已停止。請查看 .local-state/collector.log。")
+                raise RuntimeError("背景研究程序已停止。請查看 .local-state/scanner.log。")
             time.sleep(1)
         return ui.returncode
     except KeyboardInterrupt:

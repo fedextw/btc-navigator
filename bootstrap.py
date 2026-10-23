@@ -44,7 +44,7 @@ def run(arguments=None, root=None):
         if sys.version_info < (3, 11):
             write("ERROR: Python 3.11 or newer is required. Install Python 3.11 from https://www.python.org/downloads/ and enable Add Python to PATH.")
             return 1
-        required = ("launch.py", "btc_app.py", "dashboard.py", "collector.py", "market_data.py", "requirements.txt")
+        required = ("launch.py", "btc_app.py", "dashboard.py", "collector.py", "market_data.py", "requirements.txt", "scanner.py")
         missing = [name for name in required if not (root / name).is_file()]
         if missing:
             write("ERROR: Missing application files: " + ", ".join(missing))

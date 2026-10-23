@@ -168,8 +168,8 @@ def train_and_evaluate(candles, symbol, interval, demo=False, horizon=6, fee_pct
 
 def model_path(root, symbol, interval, demo):
     # Caller uses a fixed root and whitelisted exchange symbols/timeframes.
-    from market_data import SYMBOLS, INTERVALS
-    if symbol not in SYMBOLS or interval not in INTERVALS:
+    from market_data import valid_symbol, INTERVALS
+    if not valid_symbol(symbol) or interval not in INTERVALS:
         raise ValueError("模型路徑參數不正確")
     return Path(root) / f'{symbol}-{interval}-{"demo" if demo else "live"}.json'
 
@@ -213,6 +213,9 @@ def update_paper_journal(path, record, candles):
 
 def _update_paper_journal(path, record, candles):
     journal = load_record(path) or {"version": 1, "rows": []}
+    processing_key = record["id"] + "/" + str(candles.iloc[-1].close_time)
+    if journal.get("last_processing_key") == processing_key:
+        return journal
     # A retrain must not discard or rewrite forecasts from older model versions.
     rows = journal["rows"]
     for row in rows:
@@ -240,5 +243,11 @@ def _update_paper_journal(path, record, candles):
             rows.append(dict(signal_time=key, model_id=record["id"], side=prediction["side"],
                              probability=prediction["probability"], horizon=record["horizon"], cost=record["cost"],
                              status="pending", entry=None, demo=record["demo"]))
+    closed = [row for row in rows if row["status"] == "closed"]
+    journal["summary"] = {"trades": len(closed), "wins": sum(row["net_return"] > 0 for row in closed),
+        "sum_net_returns": sum(row["net_return"] for row in closed),
+        "pending": sum(row["status"] == "pending" for row in rows),
+        "unresolved": sum(row["status"] == "unresolved" for row in rows)}
+    journal["last_processing_key"] = processing_key
     save_record(path, journal)
     return journal

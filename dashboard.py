@@ -2,6 +2,7 @@
 import html
 import json
 import os
+import time
 from datetime import datetime
 from pathlib import Path
 import sqlite3
@@ -18,6 +19,7 @@ from runtime_config import STATE_ROOT
 from context_data import load_context
 from decision_engine import consensus
 from learning_lab import model_path, load_record
+from scanner_ui import scanner_page, discovered_symbols
 
 
 STYLE = """
@@ -76,6 +78,17 @@ def metric(label, value, foot, color=""):
 
 
 def monitor_status(symbol, interval, mode):
+    signals = STATE_ROOT / "signals.sqlite3"
+    if signals.exists():
+        from signal_store import connect as signals_db, get_state
+        db = signals_db()
+        try:
+            scanner = get_state(db, "status", {})
+            if scanner:
+                age = time.time() - scanner.get("updated_at", 0)
+                return f'全市場背景：{scanner["status"]} · {scanner.get("interval", "1h")} · {int(age)} 秒前；本頁幣種選擇不限制背景掃描。'
+        finally:
+            db.close()
     path = STATE_ROOT / "research.sqlite3"
     if not path.exists():
         return "背景監控尚未啟動；目前僅網頁更新。"
@@ -402,7 +415,8 @@ def render_dashboard(symbol, interval, mode):
 | AI | 可選 OpenAI 研究摘要；未設定金鑰時只有規則模型 |
 | 持續學習 | 邏輯迴歸定期重訓、驗證集選參數、保存版本；收集到的 K 線以最近最多 5,000 根訓練，不自動改寫程式碼 |
 | 驗證程度 | 學習頁提供有限歷史的時間切分回測與未來紙上紀錄；未經實盤績效驗證 |
-| 尚未涵蓋 | 全市場掃描、訂單簿、鏈上資金、宏觀日曆、完整 ICT、通知、登入與自動下單 |
+| 全市場 | 全市場頁提供動態 USDT 永續合約掃描、排程學習、網站訊號與 Telegram 推播 |
+| 尚未涵蓋 | 訂單簿、鏈上資金、宏觀日曆、完整 ICT、登入與真實下單 |
 """)
         st.caption("分數不表示成功率。因子可能高度相關，未做統計校準。止盈止損是 ATR 假設，無法保證成交或控制極端行情損失。")
         st.json({"source": "synthetic" if demo else "Binance USD-M", "mode": market["mode"],
@@ -420,11 +434,20 @@ def render_dashboard(symbol, interval, mode):
 def main():
     st.set_page_config(page_title="BTC Navigator · 合約研究終端", page_icon="◈", layout="wide", initial_sidebar_state="expanded")
     st.markdown(STYLE, unsafe_allow_html=True)
+    if "pending_workspace" in st.session_state:
+        st.session_state["workspace"] = st.session_state.pop("pending_workspace")
+    if "pending_symbol" in st.session_state:
+        st.session_state["selected_symbol"] = st.session_state.pop("pending_symbol")
+    st.session_state.setdefault("workspace", "全市場訊號")
     with st.sidebar:
         st.markdown('<div class="brand">◈ BTC<span>NAVIGATOR</span></div><div class="brand-sub">YOUR MARKET. IN FOCUS.</div>', unsafe_allow_html=True)
         st.caption("工作區 / MARKET WORKSPACE")
+        workspace = st.radio("功能", ["全市場訊號", "單幣研究"], key="workspace", index=None)
         default_symbol = os.environ.get("BTC_DEFAULT_SYMBOL", "BTCUSDT")
-        symbol = st.selectbox("交易對", SYMBOLS, index=SYMBOLS.index(default_symbol) if default_symbol in SYMBOLS else 0)
+        symbols = sorted(set(SYMBOLS) | set(discovered_symbols()) | {default_symbol} | {st.session_state.get("selected_symbol", default_symbol)})
+        st.session_state.setdefault("selected_symbol", default_symbol)
+        symbol = st.selectbox("交易對", symbols, index=None, key="selected_symbol", accept_new_options=True)
+        symbol = symbol.strip().upper()
         intervals = ["15m", "1h", "4h"]
         default_interval = os.environ.get("BTC_DEFAULT_INTERVAL", "1h")
         interval = st.selectbox("分析週期", intervals, index=intervals.index(default_interval) if default_interval in intervals else 1)
@@ -444,22 +467,13 @@ def main():
         with st.expander("AI 摘要設定（選用）"):
             st.text_input("OpenAI API Key", type="password", key="ai_session_key", help="只保留於本次網頁連線，不寫入模型、紀錄或壓縮檔。也可用 AI_API_KEY 環境變數。")
             st.caption("僅在手動按下產生摘要時呼叫，可能產生 API 費用。學習與監控不需此金鑰。")
-        st.markdown('<span class="tag">RESEARCH BUILD · 0.1</span>', unsafe_allow_html=True)
+        st.markdown('<span class="tag">RESEARCH BUILD · 0.2</span>', unsafe_allow_html=True)
         st.caption("頁面開啟期間每 60 秒刷新。\n\n公開資料不需交易所 API Key。")
-        db_path = STATE_ROOT / "research.sqlite3"
-        if db_path.exists():
-            with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True) as db:
-                monitor = db.execute("SELECT updated_at,status,detail FROM heartbeat WHERE name=?",
-                                     (f'{symbol}/{interval}/{"demo" if mode == "demo" else "live"}',)).fetchone()
-            if monitor:
-                age = (pd.Timestamp.now(tz="UTC") - pd.Timestamp(monitor[0])).total_seconds()
-                st.caption(f'背景監控：{monitor[1] if age < 180 else "心跳逾時"} · {int(age)} 秒前')
-                st.caption(monitor[2])
-            else:
-                st.caption("此交易對／模式尚無背景程序紀錄。")
-        else:
-            st.caption("背景程序尚未啟動；網頁本身不是全天候服務。")
-    render_dashboard(symbol, interval, mode)
+        st.caption("背景狀態與推播設定請看「全市場訊號」。網頁的單幣選擇不會限制背景掃描範圍。")
+    if workspace == "全市場訊號":
+        scanner_page()
+    else:
+        render_dashboard(symbol, interval, mode)
 
 
 if __name__ == "__main__":

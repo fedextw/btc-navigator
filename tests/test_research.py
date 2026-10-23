@@ -181,6 +181,8 @@ class LearningTests(unittest.TestCase):
             last = update_paper_journal(path, record, self.candles.iloc[:304])
             self.assertEqual(last["rows"][0]["status"], "closed")
             self.assertEqual(last["rows"][0]["exit"], self.candles.iloc[303].close)
+            self.assertEqual(last["summary"]["trades"], 1)
+            self.assertAlmostEqual(last["summary"]["sum_net_returns"], last["rows"][0]["net_return"])
             again = update_paper_journal(path, record, self.candles.iloc[:304])
             self.assertEqual(len(last["rows"]), len(again["rows"]))
 

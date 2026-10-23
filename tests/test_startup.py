@@ -10,7 +10,7 @@ import bootstrap
 
 class StartupTests(unittest.TestCase):
     def write_app(self, root, script):
-        for name in ("btc_app.py", "dashboard.py", "collector.py", "market_data.py", "requirements.txt"):
+        for name in ("btc_app.py", "dashboard.py", "collector.py", "market_data.py", "requirements.txt", "scanner.py"):
             (root / name).write_text("", encoding="utf-8")
         (root / "launch.py").write_text(script, encoding="utf-8")
 

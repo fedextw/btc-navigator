@@ -16,15 +16,14 @@ from learning_lab import (load_record, model_path, save_record, train_and_evalua
 from market_data import SYMBOLS, INTERVALS, demo_market, live_market, load_history, load_news
 from runtime_config import STATE_ROOT
 from context_data import load_context
+from sqlite_support import open_database
 
 
 
 def connect(root=STATE_ROOT):
     root = Path(root)
     root.mkdir(parents=True, exist_ok=True)
-    db = sqlite3.connect(root / "research.sqlite3", timeout=15)
-    db.execute("PRAGMA journal_mode=WAL")
-    db.executescript("""
+    return open_database(root / "research.sqlite3", """
     CREATE TABLE IF NOT EXISTS heartbeat (
       name TEXT PRIMARY KEY, updated_at TEXT, status TEXT, detail TEXT);
     CREATE TABLE IF NOT EXISTS snapshots (
@@ -42,7 +41,6 @@ def connect(root=STATE_ROOT):
     CREATE TABLE IF NOT EXISTS market_context (
       observed_at TEXT PRIMARY KEY, payload TEXT);
     """)
-    return db
 
 
 def store_candles(db, frame, symbol, interval, mode):

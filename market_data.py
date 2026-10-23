@@ -3,6 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 import hashlib
 import io
+import re
 import xml.etree.ElementTree as ET
 
 import numpy as np
@@ -12,6 +13,22 @@ import requests
 FUTURES = "https://fapi.binance.com"
 INTERVALS = {"15m": 900, "1h": 3600, "4h": 14400}
 SYMBOLS = ("BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "DOGEUSDT")
+
+
+def valid_symbol(symbol):
+    return (isinstance(symbol, str) and symbol.endswith("USDT") and
+            1 <= len(symbol[:-4]) <= 40 and symbol[:-4].isalnum())
+
+
+def active_usdt_contracts(info):
+    """Use exchange metadata, never a hand-maintained top-coins list."""
+    rows = info.get("symbols", [])
+    result = sorted({r["symbol"] for r in rows if r.get("status") == "TRADING"
+        and r.get("contractType") == "PERPETUAL" and r.get("quoteAsset") == "USDT"
+        and r.get("marginAsset") == "USDT" and valid_symbol(r.get("symbol"))})
+    if not result:
+        raise ValueError("交易所沒有回傳可用的 USDT 永續合約名單")
+    return result
 FEEDS = {
     "CoinDesk": "https://www.coindesk.com/arc/outboundfeeds/rss/",
     "Cointelegraph": "https://cointelegraph.com/rss",
@@ -60,7 +77,7 @@ def validate_candles(rows, now=None):
 
 
 def live_market(symbol, interval):
-    if symbol not in SYMBOLS or interval not in INTERVALS:
+    if not valid_symbol(symbol) or interval not in INTERVALS:
         raise ValueError("不支援的交易對或週期")
     jobs = {
         "candles": ("/fapi/v1/klines", {"symbol": symbol, "interval": interval, "limit": 300}),
@@ -106,8 +123,10 @@ def live_market(symbol, interval):
 def demo_market(symbol, interval, count=300):
     """Deterministic synthetic data, explicitly tagged at every presentation boundary."""
     seed = int(hashlib.sha256((symbol + interval).encode()).hexdigest()[:8], 16)
+    if not valid_symbol(symbol) or interval not in INTERVALS:
+        raise ValueError("不支援的交易對或週期")
     base = {"BTCUSDT": 68000, "ETHUSDT": 3400, "SOLUSDT": 145,
-            "BNBUSDT": 590, "XRPUSDT": 0.62, "DOGEUSDT": 0.14}[symbol]
+            "BNBUSDT": 590, "XRPUSDT": 0.62, "DOGEUSDT": 0.14}.get(symbol, 1 + seed % 300)
     seconds = INTERVALS[interval]
     end = pd.Timestamp.now(tz="UTC").floor(f"{seconds}s")
     times = pd.date_range(end=end - pd.Timedelta(seconds=seconds), periods=count, freq=f"{seconds}s")
@@ -178,7 +197,7 @@ def load_news():
 
 
 def load_history(symbol, interval, demo=False):
-    if symbol not in SYMBOLS or interval not in INTERVALS:
+    if not valid_symbol(symbol) or interval not in INTERVALS:
         raise ValueError("不支援的交易對或週期")
     if demo:
         return demo_market(symbol, interval, count=1500)["candles"]
