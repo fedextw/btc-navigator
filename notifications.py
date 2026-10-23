@@ -42,12 +42,22 @@ def send_message(text, credentials, channel="telegram", transport=requests.post)
 def format_signal(signal):
     if signal.get("kind") == "ai_note":
         return f'◈ AI 補充研究｜{signal["symbol"]}｜{signal["interval"]}\n{signal["ai_text"][:3500]}\n生成文字需核對，不更改原訊號價格與條件。'
+    if signal.get("kind") == "strategy_signal":
+        from strategy_rules import PROFILES
+        profile=PROFILES[signal["strategy"]]
+        stats=signal["forward_evidence"]
+        return (f'◈ {profile["name"]}研究訊號｜{signal["symbol"]}｜{signal["interval"]}\n'
+                f'{signal["side"]}｜參考進場 {signal["entry"]:.8g}\n止盈 {signal["target"]:.8g}｜止損 {signal["stop"]:.8g}\n'
+                f'模型 {signal["model_id"]}｜未來紙上選擇樣本 {stats["samples"]} 筆／{stats["trading_days"]} 日\n'
+                f'歷史觀察勝率 {stats["win_rate"]:.1f}%（非本次保證勝率）\n'
+                f'有效至 UTC {datetime.fromtimestamp(signal["expires_at"], timezone.utc).isoformat()}\n'
+                '已通過設定的75%歷史研究門檻；成本含假設，尚非實盤驗證，不會自動真實下單。')
     direction = "偏多 LONG" if signal["side"] == "LONG" else "偏空 SHORT"
     def price(number):
         return f"{number:,.2f}" if number >= 10 else f"{number:.8f}"
     probability = signal.get("model_probability")
     reason = "；".join(f["evidence"] for f in signal.get("factors", []) if f["score"] != 0)
-    lines = [f'◈ 合約研究訊號｜{signal["symbol"]}｜{signal["interval"]}', direction,
+    lines = [f'◈ 基準模型研究訊號（未分類策略）｜{signal["symbol"]}｜{signal["interval"]}', direction,
         f'參考收盤價：{price(signal["entry"])} USDT', f'偵測時標記價格：{price(signal["mark_price"])}',
         f'假設停損：{price(signal["stop"])}', '研究目標：' + ' / '.join(price(v) for v in signal["targets"]),
         f'規則分數：{signal["score"]:+d}；模型：{signal.get("model_id", "—")}',

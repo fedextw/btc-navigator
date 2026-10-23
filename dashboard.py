@@ -412,11 +412,11 @@ def main():
     if "pending_symbol" in st.session_state:
         st.session_state["selected_symbol"] = st.session_state.pop("pending_symbol")
         st.session_state["research_symbol"] = st.session_state["selected_symbol"]
-    st.session_state.setdefault("workspace", "全市場訊號")
+    st.session_state.setdefault("workspace", "策略訊號台")
     with st.sidebar:
         st.markdown('<div class="brand">◈ BTC<span>NAVIGATOR</span></div><div class="brand-sub">INTELLIGENCE / TRADING RESEARCH</div>', unsafe_allow_html=True)
         st.caption("工作區 / MARKET WORKSPACE")
-        workspace = st.radio("功能", ["全市場訊號", "互動決策台", "單幣研究", "學習與績效", "系統健康", "設定中心"], key="workspace", index=None)
+        workspace = st.radio("功能", ["策略訊號台", "全市場訊號", "互動決策台", "單幣研究", "學習與績效", "系統健康", "設定中心"], key="workspace", index=None)
         symbol = st.session_state.get("selected_symbol", os.environ.get("BTC_DEFAULT_SYMBOL", "BTCUSDT"))
         interval = os.environ.get("BTC_DEFAULT_INTERVAL", "1h")
         mode = "demo" if os.environ.get("BTC_NAVIGATOR_DEMO") == "1" else "auto"
@@ -448,10 +448,13 @@ def main():
         with st.expander("AI 摘要設定（選用）"):
             st.text_input("OpenAI API Key", type="password", key="ai_session_key", help="只保留於本次網頁連線，不寫入模型、紀錄或壓縮檔。也可用 AI_API_KEY 環境變數。")
             st.caption("Ollama 不需要此金鑰；到全市場設定選擇供應者。OpenAI 手動摘要才可能產生 API 費用。")
-        st.markdown('<span class="tag">RESEARCH BUILD · 0.5</span>', unsafe_allow_html=True)
+        st.markdown('<span class="tag">RESEARCH BUILD · 0.6</span>', unsafe_allow_html=True)
         st.caption("頁面開啟期間每 60 秒刷新。\n\n公開資料不需交易所 API Key。")
         st.caption("背景狀態請看「全市場訊號／系統健康」，推播與模型設定請到「設定中心」。")
-    if workspace == "全市場訊號":
+    if workspace == "策略訊號台":
+        from strategy_ui import strategy_page
+        strategy_page()
+    elif workspace == "全市場訊號":
         scanner_page()
     elif workspace == "互動決策台":
         from interactive_research import decision_desk
@@ -463,6 +466,8 @@ def main():
     elif workspace == "設定中心":
         hero("CONTROL / PREFERENCES", "設定你的研究工作站。", "管理全市場週期、模型與 Telegram。設定儲存在你的電腦，供背景程序讀取。", [("LOCAL SETTINGS", "")])
         settings_panel()
+        from strategy_ui import settings_panel as strategy_settings_panel
+        strategy_settings_panel()
     else:
         render_dashboard(symbol, interval, mode)
 

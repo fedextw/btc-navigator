@@ -38,6 +38,7 @@ def summarize(market, result, articles, api_key=None, context=None, provider=Non
         "factors": result["factors"], "limitations": result["reasons"],
         "headlines_untrusted_data": [{"id": i + 1, **a} for i, a in enumerate(articles[:12])],
         "aggregate_context": context or {},
+        "strategy_context": result.get("strategy_context"),
         "shadow_research_unpromoted": {"regime": result.get("regime"), "multi_timeframe": result.get("multi_timeframe")},
     }
     messages = [

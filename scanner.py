@@ -109,7 +109,7 @@ class MarketScanner:
         fresh = stamp is not None and abs(time.time() - stamp / 1000) < 180
         funding = numeric(mark.get("lastFundingRate")) if fresh else None
         return {"symbol": symbol, "interval": interval, "candles": frame, "mode": "live",
-                "funding": funding * 100 if funding is not None else None,
+                "funding": funding * 100 if funding is not None else None, "mark_time": stamp / 1000 if fresh else None,
                 "mark_price": numeric(mark.get("markPrice"), positive=True) if fresh else None,
                 "oi_usd": None, "oi_change": None, "errors": {}, "fetched_at": datetime.now(timezone.utc)}
 
@@ -135,7 +135,7 @@ class MarketScanner:
         row = {"symbol": symbol, "interval": interval, "mode": market["mode"], "updated_at": utcnow(),
             "side": decision["side"], "rule_side": result["side"], "model_side": decision["model_side"],
             "score": result["score"], "price": result["entry"], "mark_price": mark,
-            "model_probability": decision["model_probability"], "volume_24h": volume,
+            "model_probability": decision["model_probability"], "volume_24h": volume, "mark_time": market.get("mark_time"),
             "model_id": record["id"] if record else None, "model_pass": bool(record and record["research_pass"]),
             "reasons": reasons, "candle_time": str(market["candles"].iloc[-1].close_time),
             "gates": gates, "paper_summary": paper_summary,
@@ -390,6 +390,11 @@ def ai_loop(root, stopped):
         db = connect(root)
         try:
             outcome = generate_pending(db, root)
+            if outcome == "no_pending_signal":
+                from strategy_ai import generate as generate_strategy
+                strategy_outcome = generate_strategy(db, root)
+                if strategy_outcome not in ("disabled", "no_strategy_pending"):
+                    outcome = "strategy_" + strategy_outcome
             set_state(db, "auto_ai_status", {"status": outcome, "updated_at": time.time()})
         except Exception as exc:
             set_state(db, "auto_ai_status", {"error": type(exc).__name__, "updated_at": time.time()})
@@ -411,12 +416,15 @@ def main():
     # Complete schema initialization before the concurrent consumers start.
     connect().close()
     research_db().close()
-    deliveries = commentary = None
+    deliveries = commentary = strategy_worker = None
     if not args.demo:
         deliveries = threading.Thread(target=notification_loop, args=(STATE_ROOT, stopped), daemon=True)
         deliveries.start()
         commentary = threading.Thread(target=ai_loop, args=(STATE_ROOT, stopped), daemon=True)
         commentary.start()
+        from strategy_worker import loop as strategy_loop
+        strategy_worker = threading.Thread(target=strategy_loop, args=(STATE_ROOT, service.client, stopped), daemon=True)
+        strategy_worker.start()
     try:
         while True:
             begin = time.time()
@@ -443,6 +451,8 @@ def main():
             deliveries.join(timeout=2)
         if commentary:
             commentary.join(timeout=2)
+        if strategy_worker:
+            strategy_worker.join(timeout=2)
 
 
 if __name__ == "__main__":

@@ -173,7 +173,8 @@ def status_panel():
                 state = delivered[0] if delivered else "待推播" if settings["notifications_enabled"] else "僅網站"
                 expired = event["expires_at"] < time.time()
                 stamp = datetime.fromtimestamp(event["created_at"], ZoneInfo("Asia/Taipei")).strftime("%m/%d %H:%M:%S")
-                heading = f'{payload["symbol"]} · {payload["side"]} · {stamp} · {"已過期" if expired else "研究訊號"} · {state}'
+                category = {'trend':'趨勢單','intraday':'短線當沖'}.get(payload.get('strategy'), '基準模型')
+                heading = f'{category} · {payload["symbol"]} · {payload["side"]} · {stamp} · {"已過期" if expired else "研究訊號"} · {state}'
                 with st.expander(heading):
                     if payload.get("kind") == "ai_note":
                         st.markdown(payload["ai_text"])

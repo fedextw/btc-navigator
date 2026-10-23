@@ -54,7 +54,8 @@ def generate_pending(db, root=STATE_ROOT, summarizer=summarize):
     result = {"frame": pd.DataFrame([{"close_time": payload["candle_time"]}]),
               "score": payload["score"], "side": payload["side"], "factors": payload["factors"],
               "reasons": ["已通過研究篩選，未經實盤驗證", "新聞只有標題，不是全文"],
-              "regime": payload.get("regime"), "multi_timeframe": payload.get("multi_timeframe")}
+              "regime": payload.get("regime"), "multi_timeframe": payload.get("multi_timeframe"),
+              "strategy_context": payload.get("strategy_context")}
     try:
         text = summarizer(market, result, articles, key, context,
                           provider=settings["ai_provider"], model=settings["ollama_model"])

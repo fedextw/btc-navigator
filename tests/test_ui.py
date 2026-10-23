@@ -16,9 +16,16 @@ from streamlit.testing.v1 import AppTest
 at=AppTest.from_file('btc_app.py',default_timeout=30).run()
 assert not at.exception, at.exception
 assert not any(x.label=='交易對' for x in at.selectbox)
-for page in ['互動決策台','學習與績效','系統健康','設定中心','單幣研究','全市場訊號']:
+for page in ['策略訊號台','互動決策台','學習與績效','系統健康','設定中心','單幣研究','全市場訊號']:
     next(x for x in at.radio if x.label=='功能').set_value(page).run()
     assert not at.exception, (page,at.exception)
+    if page=='策略訊號台':
+        assert next(x for x in at.metric if x.label=='目標勝率').value=='75%'
+        assert next(x for x in at.metric if x.label=='AI選擇後未來觀察勝率').value=='尚無樣本'
+        next(x for x in at.button if x.label=='執行此策略歷史重播').click().run(timeout=45)
+        assert not at.exception,at.exception
+        assert any(x.label=='歷史重播交易' for x in at.metric)
+        assert next(x for x in at.metric if x.label=='已結算策略交易').value=='0'
     if page=='互動決策台':
         assert next(x for x in at.metric if x.label=='背景原訊號').value=='WAIT'
         next(x for x in at.slider if x.label=='顯示最近 K 線根數').set_value(120).run()

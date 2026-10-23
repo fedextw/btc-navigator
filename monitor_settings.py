@@ -15,7 +15,10 @@ DEFAULTS = {"enabled": True, "interval": "1h", "poll_seconds": 60,
             "min_volume_usdt": 5_000_000, "training_per_cycle": 3,
             "notifications_enabled": False, "channel": "site", "cooldown_minutes": 60,
             "auto_ai_enabled": False, "ai_daily_limit": 5,
-            "ai_provider": "ollama", "ollama_model": "qwen3:8b"}
+            "ai_provider": "ollama", "ollama_model": "qwen3:8b",
+            "strategy_enabled": True, "strategy_ai_enabled": False, "strategy_notifications": False, "strategy_initial": 10000.,
+            "strategy_risk_pct": .5, "strategy_max_positions": 5, "strategy_daily_loss_pct": 2.,
+            "strategy_fee_pct": .05, "strategy_slippage_pct": .02, "strategy_funding_pct_8h": .01}
 
 
 def load_settings(root=STATE_ROOT):
@@ -38,6 +41,13 @@ def save_settings(values, root=STATE_ROOT):
         raise ValueError("AI 供應者不正確")
     if not isinstance(data["ollama_model"], str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}", data["ollama_model"]) or "cloud" in data["ollama_model"].lower():
         raise ValueError("請填本機模型名稱，例如 qwen3:4b；不支援 cloud 模型")
+    if not all(isinstance(data[k], bool) for k in ("strategy_enabled", "strategy_ai_enabled", "strategy_notifications")):
+        raise ValueError("策略啟用狀態不正確")
+    import math
+    limits={"strategy_initial":(100,1e8),"strategy_risk_pct":(.1,2),"strategy_max_positions":(1,10),
+        "strategy_daily_loss_pct":(.5,10),"strategy_fee_pct":(0,1),"strategy_slippage_pct":(0,1),"strategy_funding_pct_8h":(-1,1)}
+    if any(not isinstance(data[k],(int,float)) or not math.isfinite(data[k]) or not low<=data[k]<=high for k,(low,high) in limits.items()) or not isinstance(data["strategy_max_positions"],int):
+        raise ValueError("策略資金或成本參數超出範圍")
     save_record(Path(root) / "monitor-settings.json", data)
     return data
 
