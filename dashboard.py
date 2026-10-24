@@ -407,6 +407,19 @@ def render_dashboard(symbol, interval, mode):
 def main():
     st.set_page_config(page_title="BTC Navigator · 合約研究終端", page_icon="◈", layout="wide", initial_sidebar_state="expanded")
     st.markdown(STYLE, unsafe_allow_html=True)
+    with st.sidebar:
+        st.markdown('<div class="brand">◈ BTC<span>NAVIGATOR</span></div>',unsafe_allow_html=True)
+        portal=st.radio('介面',['交易前台','研究後台'],key='portal')
+    if portal=='交易前台':
+        with st.sidebar:
+            page=st.radio('前台功能',['交易訊號','行情查詢','自選清單'])
+            st.caption('Binance USDT永續 · 僅紙上研究')
+            st.caption('完整分析、學習與設定請切換研究後台。')
+            st.markdown('<span class="tag">BUILD · 0.9</span>',unsafe_allow_html=True)
+        from trading_frontend import frontend
+        frontend(page)
+        return
+    st.caption('研究後台：分析、模擬紀錄、模型競賽與設定。此切換為介面整理，不是登入權限隔離。')
     if "pending_workspace" in st.session_state:
         st.session_state["workspace"] = st.session_state.pop("pending_workspace")
     if "pending_symbol" in st.session_state:
@@ -448,7 +461,7 @@ def main():
         with st.expander("AI 摘要設定（選用）"):
             st.text_input("OpenAI API Key", type="password", key="ai_session_key", help="只保留於本次網頁連線，不寫入模型、紀錄或壓縮檔。也可用 AI_API_KEY 環境變數。")
             st.caption("Ollama 不需要此金鑰；到全市場設定選擇供應者。OpenAI 手動摘要才可能產生 API 費用。")
-        st.markdown('<span class="tag">RESEARCH BUILD · 0.8</span>', unsafe_allow_html=True)
+        st.markdown('<span class="tag">RESEARCH BUILD · 0.9</span>', unsafe_allow_html=True)
         st.caption("頁面開啟期間每 60 秒刷新。\n\n公開資料不需交易所 API Key。")
         st.caption("背景狀態請看「全市場訊號／系統健康」，推播與模型設定請到「設定中心」。")
     if workspace == "策略訊號台":

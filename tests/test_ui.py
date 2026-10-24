@@ -15,6 +15,19 @@ class TerminalUITests(unittest.TestCase):
 from streamlit.testing.v1 import AppTest
 at=AppTest.from_file('btc_app.py',default_timeout=30).run()
 assert not at.exception, at.exception
+assert any(x.label=='查詢交易對' for x in at.selectbox)
+assert not any(x.label=='功能' for x in at.radio)
+assert not any(x.label=='OpenAI API Key' for x in at.text_input)
+for front_page in ['行情查詢','自選清單']:
+    next(x for x in at.radio if x.label=='前台功能').set_value(front_page).run()
+    assert not at.exception,at.exception
+next(x for x in at.multiselect if x.label=='管理自選合約').set_value(['BTCUSDT']).run()
+next(x for x in at.button if x.label=='儲存自選清單').click().run()
+assert not at.exception,at.exception
+from pathlib import Path
+assert Path(__import__('os').environ['BTC_NAVIGATOR_STATE_DIR']).joinpath('frontend-watchlist.json').exists()
+next(x for x in at.radio if x.label=='介面').set_value('研究後台').run()
+assert not at.exception,at.exception
 assert not any(x.label=='交易對' for x in at.selectbox)
 for page in ['策略訊號台','互動決策台','學習與績效','系統健康','設定中心','單幣研究','全市場訊號']:
     next(x for x in at.radio if x.label=='功能').set_value(page).run()
