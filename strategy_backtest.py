@@ -43,7 +43,7 @@ def run(candles,profile,symbol,mode='demo',fee_pct=.05,slippage_pct=.02,funding_
         'source':'historical_replay','stats':stats,'trades':closed,'early':trade_stats(closed[:split]),'later':trade_stats(closed[split:]),
         'open_or_pending':int(active is not None or pending is not None),'cancelled':cancelled,
         'assumptions':{'fee_pct':fee_pct,'slippage_pct':slippage_pct,'funding_pct_8h':funding_pct_8h},
-        'limitations':['固定策略歷史重播，不是未來實績，不納入75%達標或AI訓練資料',
+        'limitations':['固定策略歷史重播，不是未來實績，不納入獲利研究資格或AI訓練資料',
             '下一根開盤假設進場；未來紙上執行則等待保存預測之後的第一個尚未開始K線',
             '同根停損與止盈皆碰觸時先算停損，跳空停損按開盤不利成交，止盈跳空不給額外收益',
             '資金費採固定假設按時間估算，未含實際資金費、撮合、槓桿強平或組合資金限制']}

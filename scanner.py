@@ -416,12 +416,15 @@ def main():
     # Complete schema initialization before the concurrent consumers start.
     connect().close()
     research_db().close()
-    deliveries = commentary = strategy_worker = None
+    deliveries = commentary = strategy_worker = risk_worker = None
     if not args.demo:
         deliveries = threading.Thread(target=notification_loop, args=(STATE_ROOT, stopped), daemon=True)
         deliveries.start()
         commentary = threading.Thread(target=ai_loop, args=(STATE_ROOT, stopped), daemon=True)
         commentary.start()
+        from risk_worker import loop as risk_loop
+        risk_worker = threading.Thread(target=risk_loop, args=(STATE_ROOT, service.client, stopped), daemon=True)
+        risk_worker.start()
         from strategy_worker import loop as strategy_loop
         strategy_worker = threading.Thread(target=strategy_loop, args=(STATE_ROOT, service.client, stopped), daemon=True)
         strategy_worker.start()
@@ -447,6 +450,8 @@ def main():
         pass
     finally:
         stopped.set()
+        if risk_worker:
+            risk_worker.join(timeout=2)
         if deliveries:
             deliveries.join(timeout=2)
         if commentary:

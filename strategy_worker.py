@@ -13,7 +13,7 @@ from runtime_config import STATE_ROOT
 
 
 def risk_settings(settings):
-    return {'initial':settings['strategy_initial'],'risk_pct':settings['strategy_risk_pct'],
+    return {'quote_costs':settings['strategy_quote_costs'],'initial':settings['strategy_initial'],'risk_pct':settings['strategy_risk_pct'],
         'max_positions':settings['strategy_max_positions'],'daily_loss_pct':settings['strategy_daily_loss_pct'],
         'fee_pct':settings['strategy_fee_pct'],'slippage_pct':settings['strategy_slippage_pct'],
         'funding_pct_8h':settings['strategy_funding_pct_8h']}
@@ -48,6 +48,8 @@ def cycle(service,root=STATE_ROOT):
         offset=int(prior.get('cursor',0))%len(symbols)
         ordered=symbols[offset:]+symbols[:offset]
         archived=source_context(root)
+        from risk_worker import quotes as risk_quotes
+        from strategy_risk import funding_history
         for index,symbol in enumerate(ordered):
             frames={};paused=False
             for period in ('1h','4h','15m'):
@@ -89,7 +91,17 @@ def cycle(service,root=STATE_ROOT):
                     local_context={**archived,'ticker_fresh':fresh,'volume_24h':quotes.get(symbol,{}).get('quoteVolume')}
                     # Out-of-universe holdings are settled but never create another order.
                     profile_risk=risk_settings(settings)
-                    plan=process(db,base,higher,key,symbol,mode,profile_risk,context=local_context,allow_new=symbol in eligible)
+                    funding_data=None
+                    # Fetch only when processing a new closed bar with a cost-aware held trade.
+                    held=[json.loads(r[0]) for r in db.execute("SELECT payload FROM strategy_trades WHERE strategy=? AND symbol=? AND mode=? AND status IN ('pending','open','unresolved')",(key,symbol,mode))]
+                    starts=[t.get('entry_time',t['eligible_entry_time']) for t in held if t.get('execution_cost',{}).get('version')=='quote-snapshot-v1']
+                    if mode=='live' and starts:
+                        start=min(pd.Timestamp(t) for t in starts);end=pd.Timestamp.now(tz='UTC')
+                        if start<=end:
+                            try:funding_data=funding_history(service.client,symbol,start,end)
+                            except Exception:pass  # Saved trade will explicitly retain an estimated cost source.
+                    live_quotes,_=risk_quotes(root)  # Re-read after any long cycle or funding request.
+                    plan=process(db,base,higher,key,symbol,mode,profile_risk,context=local_context,allow_new=symbol in eligible,quote_context=live_quotes.get(symbol),funding_context=funding_data)
                     from strategy_alerts import emit
                     emit(db,signals,plan,settings)
                 except Exception as exc:

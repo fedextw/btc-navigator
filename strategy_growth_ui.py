@@ -57,6 +57,8 @@ def growth_center(db, profile, mode, rows):
 
 
 def risk_panel(db,profile,mode,stats):
+    from strategy_risk_ui import live_risk_panel
+    live_risk_panel(stats,mode)
     section('獲利與風險成長面板','REALIZED CAPITAL / COSTS / DRAWDOWN')
     rows=stats['rows'];closed=[r for r in rows if r['status']=='closed'];a=stats['account']
     one,two,three,four=st.columns(4)
@@ -66,7 +68,7 @@ def risk_panel(db,profile,mode,stats):
     four.metric('已結算資金費支出',f'{sum(r.get("funding",0) for r in closed):+,.2f} USDT')
     reserved=sum(r.get('reserved',0) for r in rows if r['status'] in ('pending','open','unresolved'))
     st.caption(f'預留／占用本金 {reserved:,.2f} USDT · 可用未預留資金 {max(0,a["equity"]-reserved):,.2f} USDT' if a else '兩個策略的帳戶獨立，不相加報酬。')
-    st.caption('帳戶包含所有原始策略候選，不是AI篩選子集。已實現權益含進場費用，不含持倉浮動損益；回撤可能低估盤中風險。滑價已反映成交價，資金費為固定假設，負值為收入。')
+    st.caption('帳戶包含所有原始策略候選，不是AI篩選子集。已實現權益含進場費用，不含持倉浮動損益；回撤可能低估盤中風險。滑價已反映成交價，資金費來源以逐筆紀錄為準，負值為收入。')
     events=db.execute('SELECT observed_at,equity FROM strategy_equity WHERE strategy=? AND mode=? ORDER BY id',(profile,mode)).fetchall()
     if a:
         points=[{'時間':a['created_at'],'權益USDT':a['initial']}]+[{'時間':r[0],'權益USDT':r[1]} for r in events]

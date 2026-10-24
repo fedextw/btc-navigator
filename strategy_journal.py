@@ -66,7 +66,7 @@ def equity_event(db,a,now,reason):
     db.execute('INSERT INTO strategy_equity(strategy,mode,observed_at,equity,reason) VALUES (?,?,?,?,?)',(a['strategy'],a['mode'],str(now),a['equity'],reason))
 
 
-def process(db,candles,higher,profile,symbol,mode,risk=None,now=None,context=None,allow_new=True):
+def process(db,candles,higher,profile,symbol,mode,risk=None,now=None,context=None,allow_new=True,quote_context=None,funding_context=None):
     risk={**DEFAULT_RISK,**(risk or {})}
     now=pd.Timestamp(now or datetime.now(timezone.utc))
     p=PROFILES[profile]; interval=p['interval']; seconds=INTERVALS[interval]
@@ -121,7 +121,7 @@ def process(db,candles,higher,profile,symbol,mode,risk=None,now=None,context=Non
                 outcome=exit_on_bar(t,bar)
                 if outcome:
                     raw,reason=outcome
-                    values=settle_values(t,raw,bar.time if 'gap' in reason else bar.close_time)
+                    values=settle_values(t,raw,bar.time if 'gap' in reason else bar.close_time,funding_context)
                     t.update(values,status='closed',exit_reason=reason,settled_at=str(now),reserved=0.)
                     a['equity']+=t['pnl']+t['entry_fee'];equity_event(db,a,now,'出場：'+reason)
                     break
@@ -146,12 +146,23 @@ def process(db,candles,higher,profile,symbol,mode,risk=None,now=None,context=Non
             budget=min(available,a['equity']*risk['allocation_pct']/100)
             quantity=min(max(0,a['equity'])*risk['risk_pct']/100/unit,budget/(price*(1+risk['fee_pct']/100))) if unit>0 else 0
             if quantity<=0:reasons.append('可用模擬資金不足')
+            cost=None;effective_slippage=risk['slippage_pct']
+            if mode=='live' and risk.get('quote_costs',False):
+                from strategy_risk import snapshot_cost
+                cost,error=snapshot_cost(quote_context or {'book_valid':False,'mark':None},latest['side'],risk['slippage_pct'],latest['reference'],latest['atr'],quantity)
+                if error:reasons.append(error)
+                if cost:
+                    effective_slippage=cost['effective_slippage_pct']
+                    price=latest['reference']*(1+direction*effective_slippage/100)
+                    unit=abs(price-latest['stop'])+(price+latest['stop'])*risk['fee_pct']/100+latest['stop']*effective_slippage/100
+                    quantity=min(max(0,a['equity'])*risk['risk_pct']/100/unit,budget/(price*(1+risk['fee_pct']/100)))
             t={**latest,**{k:risk[k] for k in ('fee_pct','slippage_pct','funding_pct_8h')},
+                'execution_cost':cost or {'version':'fixed-assumptions-v1','note':'固定成本假設'},'slippage_pct':effective_slippage,
                 'created_at':str(now),'eligible_entry_time':str(eligible),'quantity':quantity,
                 'reserved':quantity*price*(1+risk['fee_pct']/100) if not reasons else 0.,
                 'requested_risk_budget':a['equity']*risk['risk_pct']/100,
                 'status':'blocked' if reasons else 'pending','reason':'；'.join(reasons),
-                'analysis_context':context or {},'assumptions':'1×紙上資金；費率／滑價固定假設，資金費按固定假設比例估算，非歷史真實結算'}
+                'analysis_context':context or {},'assumptions':('報價快照價差壓測；資金費按覆蓋情況採公開已結算事件或明示估算，非實盤撮合' if cost else '1×紙上資金；費率／滑價固定假設，資金費按固定假設比例估算，非歷史真實結算')}
             from strategy_learning import predictions
             t['model_predictions']=predictions(db,t)
             save_trade(db,t)

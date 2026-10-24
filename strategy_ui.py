@@ -34,11 +34,13 @@ def settings_panel():
             fee=b.number_input('策略單邊費率假設（%）',0.,1.,float(s['strategy_fee_pct']),.01)
             slip=c.number_input('策略單邊滑價假設（%）',0.,1.,float(s['strategy_slippage_pct']),.01)
             funding=d.number_input('策略每8h資金費假設（%）',-1.,1.,float(s['strategy_funding_pct_8h']),.01)
+            quote_costs=st.checkbox('新候選使用即時報價成本壓測（缺資料暫停新候選）',s['strategy_quote_costs'])
+            st.caption('只套用新的真實資料候選；半價差＋設定滑價為雙邊成本壓測，非未來深度撮合。已存在交易保留原成本。')
             ai=st.checkbox('自動保存策略 AI 文字分析（需同時啟用全域自動 AI）',s['strategy_ai_enabled'])
             alerts=st.checkbox('啟用通過獲利與風險門檻的策略 Telegram 推播',s['strategy_notifications'])
             st.caption('AI 與原訊號共用每日額度；Ollama 不需 API Key。推播仍需全域 Telegram 已啟用。初始資金只影響尚未建立的帳戶，不重寫既有績效；成本與風險設定只套用新預測。')
             if st.form_submit_button('儲存雙策略設定',type='primary'):
-                save_settings({'strategy_enabled':enabled,'strategy_initial':initial,'strategy_risk_pct':risk,
+                save_settings({'strategy_quote_costs':quote_costs,'strategy_enabled':enabled,'strategy_initial':initial,'strategy_risk_pct':risk,
                     'strategy_max_positions':int(positions),'strategy_daily_loss_pct':daily,'strategy_fee_pct':fee,
                     'strategy_slippage_pct':slip,'strategy_funding_pct_8h':funding,'strategy_ai_enabled':ai,'strategy_notifications':alerts})
                 st.success('已保存，背景下一輪套用；既有交易保留原始條件。')
@@ -204,7 +206,7 @@ def strategy_page():
             if rows:
                 table=pd.DataFrame([{'交易編號':r['id'],'交易對':r['symbol'],'類型':PROFILES[selected]['name'],'方向':r['side'],'狀態':r['status'],
                     '參考進場':r.get('entry',r['reference']),'止盈':r['target'],'止損':r['stop'],'保存UTC':r['created_at'],
-                    '淨損益':r.get('pnl'),'淨R':r.get('net_r'),'退出／阻擋原因':r.get('exit_reason') or r.get('reason')} for r in rows])
+                    '淨損益':r.get('pnl'),'淨R':r.get('net_r'),'成本版本':r.get('execution_cost',{}).get('version','舊版固定假設'),'資金費來源':r.get('funding_source','未結算／舊版未記來源'),'退出／阻擋原因':r.get('exit_reason') or r.get('reason')} for r in rows])
                 st.dataframe(table.tail(200),hide_index=True,width='stretch')
                 st.download_button('匯出策略完整交易紀錄',json.dumps(rows,ensure_ascii=False,indent=2),file_name=selected+'-forward-journal.json',mime='application/json')
                 identity=st.selectbox('檢視交易分析與依據',[r['id'] for r in reversed(rows)],format_func=lambda value:next(f'{r["symbol"]} · {r["side"]} · {r["status"]} · {r["created_at"]}' for r in rows if r['id']==value))

@@ -37,7 +37,7 @@ def exit_on_bar(trade,bar):
     return None
 
 
-def settle_values(trade,raw_exit,exit_time):
+def settle_values(trade,raw_exit,exit_time,funding_data=None):
     direction=1 if trade['side']=='LONG' else -1
     exit_price=raw_exit*(1-direction*trade['slippage_pct']/100)
     quantity=trade.get('quantity',1/trade['entry'])
@@ -45,7 +45,13 @@ def settle_values(trade,raw_exit,exit_time):
     fees=quantity*(trade['entry']+exit_price)*trade['fee_pct']/100
     hours=max(0,(pd.Timestamp(exit_time)-pd.Timestamp(trade['entry_time'])).total_seconds()/3600)
     funding=direction*quantity*trade['entry']*trade.get('funding_pct_8h',.01)/100*hours/8
+    funding_source='fixed_rate_estimate'
+    if trade.get('execution_cost',{}).get('version')=='quote-snapshot-v1' and funding_data:
+        start=pd.Timestamp(trade['entry_time']);end=pd.Timestamp(exit_time)
+        if funding_data.get('symbol')==trade['symbol'] and pd.Timestamp(funding_data['start'])<=start and pd.Timestamp(funding_data['end'])>=end:
+            funding=sum(direction*quantity*event['mark']*event['rate'] for event in funding_data['events'] if start<pd.Timestamp(event['time'])<=end)
+            funding_source='public_settled_events'
     pnl=gross-fees-funding
     nominal=quantity*trade['entry']
-    return {'exit':exit_price,'exit_time':str(exit_time),'gross_pnl':gross,'fees':fees,'funding':funding,
+    return {'funding_source':funding_source,'funding_evidence':funding_data if funding_source=='public_settled_events' else None,'exit':exit_price,'exit_time':str(exit_time),'gross_pnl':gross,'fees':fees,'funding':funding,
             'pnl':pnl,'net_return':pnl/nominal,'net_r':pnl/trade['risk_budget'] if trade.get('risk_budget',0)>0 else None}
