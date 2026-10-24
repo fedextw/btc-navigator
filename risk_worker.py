@@ -38,4 +38,11 @@ def loop(root,client,stopped):
             try:
                 old=get_state(db,'risk_quotes',{});old.update(error=type(exc).__name__,last_attempt=time.time());set_state(db,'risk_quotes',old)
             finally:db.close()
+        try:
+            from signal_lifecycle import refresh
+            refresh(root)
+        except Exception as exc:
+            db=connect(root)
+            try:set_state(db,'lifecycle_status',{'error':type(exc).__name__,'updated_at':time.time()})
+            finally:db.close()
         stopped.wait(30)

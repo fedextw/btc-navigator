@@ -173,11 +173,15 @@ def status_panel():
                 state = delivered[0] if delivered else "待推播" if settings["notifications_enabled"] else "僅網站"
                 expired = event["expires_at"] < time.time()
                 stamp = datetime.fromtimestamp(event["created_at"], ZoneInfo("Asia/Taipei")).strftime("%m/%d %H:%M:%S")
+                event_label='狀態更新' if payload.get('kind')=='strategy_lifecycle' else '研究訊號'
                 category = {'trend':'趨勢單','intraday':'短線當沖'}.get(payload.get('strategy'), '基準模型')
-                heading = f'{category} · {payload["symbol"]} · {payload["side"]} · {stamp} · {"已過期" if expired else "研究訊號"} · {state}'
+                heading = f'{category} · {payload["symbol"]} · {payload["side"]} · {stamp} · {"已過期" if expired else event_label} · {state}'
                 with st.expander(heading):
                     if payload.get("kind") == "ai_note":
                         st.markdown(payload["ai_text"])
+                    elif payload.get('kind')=='strategy_lifecycle':
+                        from notifications import format_signal
+                        st.text(format_signal(payload))
                     else:
                         st.write(f'參考價 {payload["entry"]:g} ／ 假設停損 {payload["stop"]:g}')
                         st.write("研究目標：" + " / ".join(f"{v:g}" for v in payload["targets"]))

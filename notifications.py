@@ -40,6 +40,14 @@ def send_message(text, credentials, channel="telegram", transport=requests.post)
 
 
 def format_signal(signal):
+    if signal.get('kind')=='strategy_lifecycle':
+        from signal_lifecycle import KINDS
+        outcome=f'模擬淨損益 {signal["pnl"]:+.2f} USDT\n' if signal.get('state')=='closed' and signal.get('pnl') is not None else ''
+        return (f'◈ 訊號狀態更新｜{signal["symbol"]}｜{KINDS.get(signal["state"],signal["state"])}\n'
+                f'原訊號 {signal["trade_id"]}\n確認時間 UTC {signal["observed_at"]}\n'
+                f'事件／預定期限 UTC {signal.get("effective_at") or "僅狀態檢查"}\n'
+                f'{signal.get("details",{}).get("reason","")}\n{outcome}'
+                '這是先前訊號的狀態更新，不是新下單指令；模擬成交與出場不代表交易所實際成交。')
     if signal.get("kind") == "ai_note":
         return f'◈ AI 補充研究｜{signal["symbol"]}｜{signal["interval"]}\n{signal["ai_text"][:3500]}\n生成文字需核對，不更改原訊號價格與條件。'
     if signal.get("kind") == "strategy_signal":
@@ -95,6 +103,13 @@ def dispatch(db, root=STATE_ROOT, now=None, sender=send_message):
     result = {"sent": 0, "failed": 0}
     for event in rows:
         payload=json.loads(event['payload'])
+        if payload.get('kind')=='strategy_lifecycle':
+            from signal_lifecycle import delivery_allowed as lifecycle_allowed
+            if not lifecycle_allowed(root,db,payload):
+                db.execute("INSERT OR IGNORE INTO deliveries VALUES (?,?,?,?,?,?,?)",(event['id'],'telegram','suppressed',0,0,now,'lifecycle_superseded'))
+                db.execute("UPDATE deliveries SET status='suppressed',error='lifecycle_superseded',updated_at=? WHERE event_id=? AND channel='telegram' AND status='retry'",(now,event['id']))
+                db.commit()
+                continue
         if payload.get('kind')=='strategy_signal':
             from strategy_alerts import delivery_allowed
             if not settings.get('strategy_notifications') or not delivery_allowed(root,db,payload,now):

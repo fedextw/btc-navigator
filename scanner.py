@@ -59,7 +59,7 @@ class MarketScanner:
         for row in db.execute("SELECT symbol,interval,mode FROM scan_results").fetchall():
             if row["mode"] == "live" and row["symbol"] not in active:
                 db.execute("DELETE FROM scan_results WHERE symbol=? AND interval=? AND mode=?", tuple(row))
-        for row in db.execute("SELECT id,symbol FROM events WHERE expires_at>?", (time.time(),)).fetchall():
+        for row in db.execute("SELECT id,symbol FROM events WHERE expires_at>? AND COALESCE(json_extract(payload,'$.kind'),'baseline')!='strategy_lifecycle'", (time.time(),)).fetchall():
             if row["symbol"] not in active:
                 db.execute("UPDATE events SET expires_at=? WHERE id=?", (time.time(), row["id"]))
         db.commit()
@@ -207,7 +207,7 @@ class MarketScanner:
         for event in db.execute("SELECT id,payload FROM events WHERE symbol=? AND interval=? AND mode=? AND expires_at>?",
                                 (symbol, interval, mode, time.time())).fetchall():
             payload = json.loads(event["payload"])
-            if payload.get("kind") != "ai_note" and pd.Timestamp(payload["candle_time"]) == as_of:
+            if payload.get("kind") not in ("ai_note","strategy_lifecycle") and payload.get("candle_time") is not None and pd.Timestamp(payload["candle_time"]) == as_of:
                 payload["multi_timeframe"] = evidence
                 db.execute("UPDATE events SET payload=? WHERE id=?", (json.dumps(payload, ensure_ascii=False), event["id"]))
         db.commit()

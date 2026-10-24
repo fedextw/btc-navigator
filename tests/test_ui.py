@@ -29,11 +29,18 @@ assert Path(__import__('os').environ['BTC_NAVIGATOR_STATE_DIR']).joinpath('front
 next(x for x in at.radio if x.label=='介面').set_value('研究後台').run()
 assert not at.exception,at.exception
 assert not any(x.label=='交易對' for x in at.selectbox)
+# Status updates have a different payload from entry alerts; old workspaces must render both.
+import json,time
+from signal_store import connect as event_db
+edb=event_db();stamp=time.time()
+event={'kind':'strategy_lifecycle','trade_id':'ui-test','lifecycle_id':1,'base_event_id':'mock','symbol':'BTCUSDT','interval':'1h','strategy':'trend','side':'LONG','state':'closed','observed_at':'2026-10-24 00:00:00+00:00','effective_at':None,'details':{'reason':'合成介面測試'},'pnl':-1.,'mode':'live'}
+edb.execute('INSERT INTO events VALUES (?,?,?,?,?,?,?,?)',('ui-lifecycle',stamp,stamp+600,'BTCUSDT','1h','LONG','live',json.dumps(event)));edb.commit();edb.close()
 for page in ['策略訊號台','互動決策台','學習與績效','系統健康','設定中心','單幣研究','全市場訊號']:
     next(x for x in at.radio if x.label=='功能').set_value(page).run()
     assert not at.exception, (page,at.exception)
     if page=='策略訊號台':
         assert any('AI強化實驗室' in x.value for x in at.markdown)
+        assert any('交易錯誤歸因與改善觀察' in x.value for x in at.markdown)
         assert next(x for x in at.metric if x.label=='AI選擇後平均淨報酬').value=='尚無樣本'
         assert any(x.label=='已封存策略模型' for x in at.metric)
         assert not any(x.label=='目標勝率' for x in at.metric)
@@ -52,6 +59,8 @@ for page in ['策略訊號台','互動決策台','學習與績效','系統健康
         assert next(x for x in at.selectbox if x.label=='滾動報告來源').value=='手動研究副本'
         from pathlib import Path
         assert list(Path(__import__('os').environ['BTC_NAVIGATOR_STATE_DIR']).joinpath('walk-research').glob('*.json'))
+    if page=='全市場訊號':
+        assert any('狀態更新' in x.label for x in at.expander)
     if page=='設定中心':
         assert next(x for x in at.selectbox if x.label=='文字 AI 供應者').value=='ollama'
     if page=='單幣研究':

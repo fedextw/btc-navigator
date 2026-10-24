@@ -28,6 +28,9 @@ def connect(root=STATE_ROOT):
       CREATE TABLE IF NOT EXISTS strategy_equity(id INTEGER PRIMARY KEY AUTOINCREMENT,strategy TEXT,mode TEXT,observed_at TEXT,equity REAL,reason TEXT);
       CREATE TABLE IF NOT EXISTS strategy_ai_inputs(trade_id TEXT PRIMARY KEY,requested_at TEXT,provider TEXT,model TEXT,payload TEXT);
       CREATE TABLE IF NOT EXISTS strategy_models(id TEXT PRIMARY KEY,profile TEXT,mode TEXT,created_at TEXT,payload TEXT);
+      CREATE TABLE IF NOT EXISTS strategy_lifecycle(id INTEGER PRIMARY KEY AUTOINCREMENT,trade_id TEXT,kind TEXT,observed_at TEXT,effective_at TEXT,payload TEXT);
+      CREATE INDEX IF NOT EXISTS lifecycle_trade ON strategy_lifecycle(trade_id,id);
+      CREATE TABLE IF NOT EXISTS strategy_reference(trade_id TEXT PRIMARY KEY,status TEXT,reason TEXT,observed_at TEXT);
       CREATE TABLE IF NOT EXISTS strategy_training_runs(id INTEGER PRIMARY KEY AUTOINCREMENT,profile TEXT,mode TEXT,attempted_at TEXT,source_count INTEGER,result TEXT,model_id TEXT);
       CREATE TABLE IF NOT EXISTS strategy_reviews(id TEXT PRIMARY KEY,strategy TEXT,mode TEXT,observed_at TEXT,payload TEXT);
     ''',rows=True)
@@ -43,7 +46,10 @@ def state(db,name,value=None):
     return json.loads(row[0]) if row else {}
 
 
-def save_trade(db,t):
+def save_trade(db,t,observed_at=None,new_forecast=False):
+    from signal_lifecycle import track_save
+    previous=db.execute('SELECT payload FROM strategy_trades WHERE id=?',(t['id'],)).fetchone()
+    track_save(db,json.loads(previous[0]) if previous else None,t,pd.Timestamp(observed_at if observed_at is not None else pd.Timestamp.now(tz='UTC')),new_forecast)
     db.execute('INSERT OR REPLACE INTO strategy_trades VALUES (?,?,?,?,?,?,?)',(t['id'],t['strategy'],t['symbol'],t['mode'],t['status'],t['signal_time'],dumps(t)))
 
 
@@ -74,7 +80,7 @@ def process(db,candles,higher,profile,symbol,mode,risk=None,now=None,context=Non
     if len(frame)<200 or not (frame.time.diff().dropna().dt.total_seconds()==seconds).all():
         with db:
             for row in db.execute("SELECT payload FROM strategy_trades WHERE strategy=? AND symbol=? AND mode=? AND status IN ('pending','open')",(profile,symbol,mode)).fetchall():
-                trade=json.loads(row[0]);trade.update(status='unresolved',reason='基準行情不足或有缺口，資金保留待還原');save_trade(db,trade)
+                trade=json.loads(row[0]);trade.update(status='unresolved',reason='基準行情不足或有缺口，資金保留待還原');save_trade(db,trade,now)
         raise ValueError('策略基準行情不足或有缺口，停止新研究')
     h=higher[higher.close_time<=frame.iloc[-1].close_time].copy()
     if len(h)<200 or not (h.time.diff().dropna().dt.total_seconds()==INTERVALS[p['higher']]).all():
@@ -93,39 +99,44 @@ def process(db,candles,higher,profile,symbol,mode,risk=None,now=None,context=Non
                 expected=pd.Timestamp(t['last_processed_time'])+pd.Timedelta(seconds=seconds) if t.get('last_processed_time') else pd.Timestamp(t.get('entry_time') or t['eligible_entry_time'])
                 if not (frame.time==expected).any():continue
                 t.update(status='open' if t.get('entry') is not None else 'pending',reason='已由連續歷史資料還原',recovered_at=str(now))
+                save_trade(db,t,now)
             if t['status']=='pending':
                 eligible=pd.Timestamp(t['eligible_entry_time'])
                 future=frame[frame.time>=eligible]
                 if future.empty:continue
                 if future.iloc[0].time!=eligible:
-                    t.update(status='unresolved',reason='預定進場 K 線不在視窗內；資金凍結待歷史還原');save_trade(db,t);continue
+                    t.update(status='unresolved',reason='預定進場 K 線不在視窗內；資金凍結待歷史還原');save_trade(db,t,now);continue
                 bar=future.iloc[0]
                 price=entry_fill(t,bar,t['fee_pct'],t['slippage_pct'])
                 if price is None:
-                    t.update(status='cancelled',reason='開盤偏離過大或已越過停損／目標',reserved=0.);save_trade(db,t);continue
+                    t.update(status='cancelled',reason='開盤偏離過大或已越過停損／目標',reserved=0.);save_trade(db,t,now);continue
                 actual_unit=abs(price-t['stop'])+(price+t['stop'])*t['fee_pct']/100+t['stop']*t['slippage_pct']/100
                 quantity=min(t['quantity'],t['reserved']/(price*(1+t['fee_pct']/100)),t['requested_risk_budget']/actual_unit)
                 fee=quantity*price*t['fee_pct']/100
-                t.update(status='open',entry=price,quantity=quantity,entry_fee=fee,entry_time=str(bar.time),
+                t.update(entry_delay_seconds=(bar.time-pd.Timestamp(t['created_at'])).total_seconds(),raw_entry=float(bar.open),mfe_usdt=0.,mae_usdt=0.,excursion_complete=True,excursion_start_at=str(bar.time),status='open',entry=price,quantity=quantity,entry_fee=fee,entry_time=str(bar.time),
                     reserved=quantity*price,bars_held=0,last_processed_time=None,
                     risk_budget=quantity*(abs(price-t['stop'])+(price+t['stop'])*t['fee_pct']/100+t['stop']*t['slippage_pct']/100))
                 a['equity']-=fee;equity_event(db,a,now,'進場手續費')
+                save_trade(db,t,now)
             bars=frame[frame.time>=pd.Timestamp(t['entry_time'])]
             if t.get('last_processed_time'):
                 bars=bars[bars.time>pd.Timestamp(t['last_processed_time'])]
             expected=pd.Timestamp(t['last_processed_time'])+pd.Timedelta(seconds=seconds) if t.get('last_processed_time') else pd.Timestamp(t['entry_time'])
             if not bars.empty and bars.iloc[0].time!=expected:
-                t.update(status='unresolved',reason='持倉期間行情缺失；不能假定未觸及停損');save_trade(db,t);continue
+                t.update(status='unresolved',reason='持倉期間行情缺失；不能假定未觸及停損');save_trade(db,t,now);continue
             for bar in bars.itertuples():
                 t['bars_held']+=1;t['last_processed_time']=str(bar.time)
                 outcome=exit_on_bar(t,bar)
+                from trade_review import track_excursion,review
+                track_excursion(t,bar,outcome[0] if outcome else None)
                 if outcome:
                     raw,reason=outcome
                     values=settle_values(t,raw,bar.time if 'gap' in reason else bar.close_time,funding_context)
                     t.update(values,status='closed',exit_reason=reason,settled_at=str(now),reserved=0.)
+                    t['post_trade_review']=review(t)
                     a['equity']+=t['pnl']+t['entry_fee'];equity_event(db,a,now,'出場：'+reason)
                     break
-            save_trade(db,t)
+            save_trade(db,t,now)
         db.execute('INSERT OR REPLACE INTO strategy_latest VALUES (?,?,?,?)',(profile,symbol,mode,dumps(latest)))
         duplicate=db.execute('SELECT 1 FROM strategy_trades WHERE id=?',(latest['id'],)).fetchone()
         active=db.execute("SELECT COUNT(*) FROM strategy_trades WHERE strategy=? AND symbol=? AND mode=? AND status IN ('pending','open','unresolved')",(profile,symbol,mode)).fetchone()[0]
@@ -167,7 +178,7 @@ def process(db,candles,higher,profile,symbol,mode,risk=None,now=None,context=Non
             from ai_context_features import extract
             t['ai_context_features']=extract(t)
             t['model_predictions']=predictions(db,t)
-            save_trade(db,t)
+            save_trade(db,t,now,new_forecast=True)
         save_account(db,a);db.commit()
     except BaseException:
         db.rollback();raise

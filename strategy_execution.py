@@ -53,5 +53,5 @@ def settle_values(trade,raw_exit,exit_time,funding_data=None):
             funding_source='public_settled_events'
     pnl=gross-fees-funding
     nominal=quantity*trade['entry']
-    return {'funding_source':funding_source,'funding_evidence':funding_data if funding_source=='public_settled_events' else None,'exit':exit_price,'exit_time':str(exit_time),'gross_pnl':gross,'fees':fees,'funding':funding,
+    return {'raw_exit':raw_exit,'funding_source':funding_source,'funding_evidence':funding_data if funding_source=='public_settled_events' else None,'exit':exit_price,'exit_time':str(exit_time),'gross_pnl':gross,'fees':fees,'funding':funding,
             'pnl':pnl,'net_return':pnl/nominal,'net_r':pnl/trade['risk_budget'] if trade.get('risk_budget',0)>0 else None}

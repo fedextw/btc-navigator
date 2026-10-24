@@ -27,7 +27,7 @@ def generate_pending(db, root=STATE_ROOT, summarizer=summarize):
         db.rollback()
         return "daily_limit"
     event = db.execute("""SELECT e.* FROM events e LEFT JOIN ai_reports a ON e.id=a.event_id
-        WHERE a.event_id IS NULL AND e.mode='live' AND e.expires_at>? AND e.id NOT LIKE '%-ai'
+        WHERE a.event_id IS NULL AND e.mode='live' AND e.expires_at>? AND e.id NOT LIKE '%-ai' AND COALESCE(json_extract(e.payload,'$.kind'),'baseline') NOT IN ('strategy_lifecycle','ai_note')
         ORDER BY e.created_at DESC LIMIT 1""", (time.time(),)).fetchone()
     if not event:
         db.rollback()

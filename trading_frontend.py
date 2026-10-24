@@ -100,6 +100,7 @@ def coin_detail(db,symbol,mode,trades):
     if positions:
         st.info('此幣有紙上持倉；持倉紀錄不代表新的入場訊號。詳細損益與風險請看研究後台。')
     selected=[(t,q) for t,q in trades if t['symbol']==symbol]
+    if any(t.get('_reference_state') in ('paused','expired') for t,q in selected):st.caption('此幣有先前已暫停或過期的參考訊號，請勿沿用舊點位；等待新的有效候選。')
     candidates=candidate_cards(selected)
     if candidates:
         for t,q in candidates[:4]:front_card(t,q)
@@ -129,6 +130,7 @@ def frontend(page):
     db=connect();journal=strategy_db()
     try:
         markets=market_rows(db,mode);symbols=[r['交易對'] for r in markets]
+        reference_states={r['trade_id']:r['status'] for r in journal.execute('SELECT trade_id,status FROM strategy_reference')}
         trades=[]
         fresh_prices={r['交易對']:r['標記價格'] for r in markets}
         from ai_diagnostics import guard
@@ -138,6 +140,9 @@ def frontend(page):
             for t in stats['rows']:
                 if t['status'] not in ('pending','open'):continue
                 qualified=bool(model and proof['target_pass'] and any(p['model_id']==model['id'] and p['selected'] for p in t.get('model_predictions',[])))
+                ref=reference_states.get(t['id'])
+                if t['status']=='pending' and ref in ('paused','expired'):
+                    t={**t,'_front_blocked':'參考已暫停或過期','_reference_state':ref}
                 if model and t['status']=='pending':
                     safety=guard([r for r in stats['rows'] if r['status']=='closed'],model['id'],t)
                     qualified=qualified and not safety['blocked']

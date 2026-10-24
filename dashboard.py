@@ -415,7 +415,7 @@ def main():
             page=st.radio('前台功能',['交易訊號','行情查詢','自選清單'])
             st.caption('Binance USDT永續 · 僅紙上研究')
             st.caption('完整分析、學習與設定請切換研究後台。')
-            st.markdown('<span class="tag">BUILD · 1.0</span>',unsafe_allow_html=True)
+            st.markdown('<span class="tag">BUILD · 1.1</span>',unsafe_allow_html=True)
         from trading_frontend import frontend
         frontend(page)
         return
@@ -461,7 +461,7 @@ def main():
         with st.expander("AI 摘要設定（選用）"):
             st.text_input("OpenAI API Key", type="password", key="ai_session_key", help="只保留於本次網頁連線，不寫入模型、紀錄或壓縮檔。也可用 AI_API_KEY 環境變數。")
             st.caption("Ollama 不需要此金鑰；到全市場設定選擇供應者。OpenAI 手動摘要才可能產生 API 費用。")
-        st.markdown('<span class="tag">RESEARCH BUILD · 1.0</span>', unsafe_allow_html=True)
+        st.markdown('<span class="tag">RESEARCH BUILD · 1.1</span>', unsafe_allow_html=True)
         st.caption("頁面開啟期間每 60 秒刷新。\n\n公開資料不需交易所 API Key。")
         st.caption("背景狀態請看「全市場訊號／系統健康」，推播與模型設定請到「設定中心」。")
     if workspace == "策略訊號台":

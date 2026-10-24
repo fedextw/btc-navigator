@@ -55,7 +55,7 @@ def record_signal(db, signal, cooldown_minutes=60, now=None):
         return None
     identity = hashlib.sha256(f'{signal["symbol"]}/{signal["interval"]}/{signal["candle_time"]}/{signal["side"]}'.encode()).hexdigest()[:24]
     with db:
-        previous = db.execute("SELECT created_at FROM events WHERE symbol=? AND interval=? AND side=? AND mode='live' ORDER BY created_at DESC LIMIT 1",
+        previous = db.execute("SELECT created_at FROM events WHERE symbol=? AND interval=? AND side=? AND mode='live' AND COALESCE(json_extract(payload,'$.kind'),'baseline')!='strategy_lifecycle' ORDER BY created_at DESC LIMIT 1",
             (signal["symbol"], signal["interval"], signal["side"])).fetchone()
         if previous and now - previous[0] < cooldown_minutes * 60:
             return None
