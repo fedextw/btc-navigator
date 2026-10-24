@@ -13,7 +13,7 @@ from test_strategies import frame,plan
 
 def market(now=None):
     now=time.time() if now is None else now
-    return {'markPrice':'100','time':now*1000},{'bidPrice':'99.9','askPrice':'100.1','bidQty':'100','askQty':'100','time':now*1000}
+    return {'markPrice':'100','time':int(now*1000)},{'bidPrice':'99.9','askPrice':'100.1','bidQty':'100','askQty':'100','time':int(now*1000)}
 
 
 def holding(**changes):

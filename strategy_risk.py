@@ -19,7 +19,7 @@ def quote(mark,book,now=None):
     bt=number(book.get('time'));bq,aq=number(book.get('bidQty'),True),number(book.get('askQty'),True)
     book_valid=bool(bid and ask and bid<=ask and bt is not None and 0<=now-bt/1000<=120 and bq and aq)
     spread=(ask-bid)/((ask+bid)/2)*100 if book_valid else None
-    return {'mark':price if valid else None,'mark_time':stamp/1000 if valid else None,
+    return {'funding_pct':number(mark.get('lastFundingRate'))*100 if valid and number(mark.get('lastFundingRate')) is not None else None,'mark':price if valid else None,'mark_time':stamp/1000 if valid else None,
             'book_valid':book_valid,'spread_pct':spread,'bid':bid if book_valid else None,'ask':ask if book_valid else None,
             'bid_qty':bq if book_valid else None,'ask_qty':aq if book_valid else None,
             'book_time':bt/1000 if book_valid else None}

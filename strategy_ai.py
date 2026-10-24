@@ -31,7 +31,7 @@ def generate(db,root,summarizer=summarize):
     context=plan.get('analysis_context',{})
     result={'frame':pd.DataFrame([{'close_time':plan['signal_time']}]),'score':0,'side':plan['side'],
         'factors':[{'name':k,'score':0,'evidence':'通過' if v else '未通過'} for k,v in plan['checks'].items()],
-        'reasons':['紙上策略研究，不代表正式下單指令或已達75%勝率','只能解讀預測保存時的快照，不能引用已知後續結果'],
+        'reasons':['紙上策略研究，不代表正式下單指令或獲利保證','只能解讀預測保存時的快照，不能引用已知後續結果'],
         'strategy_context':{k:plan.get(k) for k in ('strategy','profile_version','reference','stop','target','created_at','eligible_entry_time','context','assumptions','model_predictions')}}
     try:
         journal=journal_db(root)

@@ -164,6 +164,8 @@ def process(db,candles,higher,profile,symbol,mode,risk=None,now=None,context=Non
                 'status':'blocked' if reasons else 'pending','reason':'；'.join(reasons),
                 'analysis_context':context or {},'assumptions':('報價快照價差壓測；資金費按覆蓋情況採公開已結算事件或明示估算，非實盤撮合' if cost else '1×紙上資金；費率／滑價固定假設，資金費按固定假設比例估算，非歷史真實結算')}
             from strategy_learning import predictions
+            from ai_context_features import extract
+            t['ai_context_features']=extract(t)
             t['model_predictions']=predictions(db,t)
             save_trade(db,t)
         save_account(db,a);db.commit()

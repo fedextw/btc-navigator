@@ -94,6 +94,14 @@ def dispatch(db, root=STATE_ROOT, now=None, sender=send_message):
           (d.status='retry' AND d.next_attempt<=? AND d.attempts<5)) ORDER BY e.created_at LIMIT 20""", (now, now)).fetchall()
     result = {"sent": 0, "failed": 0}
     for event in rows:
+        payload=json.loads(event['payload'])
+        if payload.get('kind')=='strategy_signal':
+            from strategy_alerts import delivery_allowed
+            if not settings.get('strategy_notifications') or not delivery_allowed(root,db,payload,now):
+                db.execute("INSERT OR IGNORE INTO deliveries VALUES (?,?,?,?,?,?,?)",(event['id'],'telegram','suppressed',0,0,now,'strategy_safety_recheck'))
+                db.execute("UPDATE deliveries SET status='suppressed',error='strategy_safety_recheck',updated_at=? WHERE event_id=? AND channel='telegram' AND status='retry'",(now,event['id']))
+                db.commit()
+                continue
         # Claim under a write lock so two dispatchers cannot send the same event.
         db.execute("BEGIN IMMEDIATE")
         previous = db.execute("SELECT status,next_attempt,attempts FROM deliveries WHERE event_id=? AND channel='telegram'", (event["id"],)).fetchone()

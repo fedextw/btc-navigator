@@ -35,7 +35,7 @@ def wilson(wins,n):
 
 def evidence(rows,mode,unresolved=0,now=None):
     now=pd.Timestamp(now or pd.Timestamp.now(tz='UTC'))
-    rows=forward_window(rows,now)
+    rows=forward_window([r for r in rows if r.get('mode',mode)==mode],now)
     n=len(rows);wins=sum(r['pnl']>0 for r in rows)
     bounds=wilson(wins,n)
     stats=trade_stats(rows)
@@ -69,12 +69,20 @@ def predictions(db,plan):
     current=load(db,plan['strategy'],plan['mode']);out=[]
     try:x=vector(plan)
     except (ValueError,KeyError,TypeError):return out
-    for role in ('incumbent','challenger'):
-        model=current.get(role)
-        if model:
+    from ai_model_lab import load_lab,forecast
+    models=[(role,current.get(role)) for role in ('incumbent','challenger')]
+    models += [('parallel',m) for m in load_lab(db,plan['strategy'],plan['mode']).get('contenders',[])]
+    seen=set()
+    for role,model in models:
+        if not model or model['id'] in seen:continue
+        seen.add(model['id'])
+        if model.get('version')=='multi-family-v1':
+            record=forecast(model,plan);record['role']=role;out.append(record)
+        else:
             probability=float(predict(model['model'],[x])[0])
             out.append({'role':role,'model_id':model['id'],'probability':probability,
-                        'selected':probability>=model['threshold'],'threshold':model['threshold']})
+                        'selected':probability>=model['threshold'],'threshold':model['threshold'],
+                        'calibrated':False,'abstained':False,'family':'legacy-logistic'})
     return out
 
 
@@ -142,7 +150,8 @@ def update(db,profile,mode,now=None):
         new_evidence=evidence(selected_forward(rows,challenger['id']),mode,unresolved,now)
         current['challenger_evidence']=new_evidence
         if comparison['common']>=100 and min(v['selected'] for v in comparison['models'].values())>=100:
-            better=new_evidence['target_pass'] and comparison['comparison_pass']
+            from ai_diagnostics import health
+            better=new_evidence['target_pass'] and comparison['comparison_pass'] and not health(rows,challenger['id'],now)['pause_qualified']
             audit={'at':str(now),'decision':'晉升影子模型' if better else '保留影子模型','old':incumbent['id'],'candidate':challenger['id'],
                 'objective':OBJECTIVE,'comparison':comparison,'reason':'共同機會淨R改善且回撤未增加' if better else '未通過：'+'、'.join([k for k,v in {**comparison['checks'],**new_evidence['checks']}.items() if not v])}
             current.setdefault('history',[]).append(audit)

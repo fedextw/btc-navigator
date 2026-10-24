@@ -10,7 +10,7 @@ def forward_window(rows, now=None):
     now = pd.Timestamp(now if now is not None else pd.Timestamp.now(tz='UTC'))
     valid = []
     for row in rows:
-        if row.get('status') != 'closed':
+        if row.get('status') != 'closed' or row.get('source') == 'historical_replay':
             continue
         try:
             exit_at = pd.Timestamp(row['exit_time'])
@@ -25,7 +25,7 @@ def forward_window(rows, now=None):
     return sorted(valid, key=lambda r: (pd.Timestamp(r['exit_time']), r['id']))[-200:]
 
 
-def daily_interval(rows, values):
+def daily_interval(rows, values, alpha=.05):
     """Resample Taipei exit-day clusters; report mean per opportunity, not portfolio ROI."""
     days = {}
     for row, value in zip(rows, values):
@@ -38,7 +38,7 @@ def daily_interval(rows, values):
     rng = np.random.default_rng(731)
     indices = rng.integers(0, len(days), size=(1200, len(days)))
     means = totals[indices].sum(axis=1) / counts[indices].sum(axis=1)
-    return [float(x) for x in np.quantile(means, [.025, .975])]
+    return [float(x) for x in np.quantile(means, [alpha/2, 1-alpha/2])]
 
 
 def risk_score(row):
@@ -55,7 +55,7 @@ def r_drawdown(values):
     return float(np.max(np.maximum.accumulate(curve) - curve))
 
 
-def compare(rows, old_id, new_id, mode, unresolved=0, now=None):
+def compare(rows, old_id, new_id, mode, unresolved=0, now=None, alpha=.05):
     common = [r for r in forward_window(rows, now) if {old_id, new_id}.issubset(
         {p['model_id'] for p in r.get('model_predictions', [])}) and risk_score(r) is not None]
     values = {}
@@ -70,7 +70,7 @@ def compare(rows, old_id, new_id, mode, unresolved=0, now=None):
                          'max_drawdown_r': r_drawdown(scores),
                          'win_rate': sum(v > 0 for v in taken)/len(taken)*100 if taken else None}
     delta = [new-old for old, new in zip(values[old_id], values[new_id])]
-    interval = daily_interval(common, delta)
+    interval = daily_interval(common, delta, alpha)
     old, new = reports.values()
     days = len({pd.Timestamp(r['exit_time']).tz_convert('Asia/Taipei').date() for r in common})
     checks = {'共同未來機會至少100筆': len(common) >= 100,
@@ -81,7 +81,7 @@ def compare(rows, old_id, new_id, mode, unresolved=0, now=None):
               '新模型R回撤不高於舊模型': new['max_drawdown_r'] <= old['max_drawdown_r'],
               '真實資料且無待還原交易': mode == 'live' and unresolved == 0}
     return {'objective': OBJECTIVE, 'as_of': str(pd.Timestamp(now if now is not None else pd.Timestamp.now(tz='UTC'))), 'models': reports, 'common': len(common), 'days': days,
-            'delta_mean_r': float(np.mean(delta)) if delta else None, 'delta95_r': interval,
+            'confidence_pct':(1-alpha)*100,'delta_mean_r': float(np.mean(delta)) if delta else None, 'delta95_r': interval,
             'checks': {k: bool(v) for k, v in checks.items()}, 'comparison_pass': all(checks.values()),
             'curve': [{'時間': r['exit_time'], '現行模型': float(a), '挑戰模型': float(b)}
                       for r, a, b in zip(common, np.cumsum(values[old_id]), np.cumsum(values[new_id]))],

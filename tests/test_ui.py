@@ -33,6 +33,7 @@ for page in ['策略訊號台','互動決策台','學習與績效','系統健康
     next(x for x in at.radio if x.label=='功能').set_value(page).run()
     assert not at.exception, (page,at.exception)
     if page=='策略訊號台':
+        assert any('AI強化實驗室' in x.value for x in at.markdown)
         assert next(x for x in at.metric if x.label=='AI選擇後平均淨報酬').value=='尚無樣本'
         assert any(x.label=='已封存策略模型' for x in at.metric)
         assert not any(x.label=='目標勝率' for x in at.metric)

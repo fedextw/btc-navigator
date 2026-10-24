@@ -35,7 +35,7 @@ def growth_center(db, profile, mode, rows):
     with st.expander('查看真實訓練嘗試紀錄'):
         if attempts:st.dataframe(pd.DataFrame([{'嘗試時間UTC':r[0],'來源結算筆數':r[1],'結果':r[2],'模型版本':r[3]} for r in attempts]),hide_index=True,width='stretch')
         else:st.caption('尚無新版訓練嘗試紀錄；舊模型封存與晉升紀錄仍保留。')
-    section('新舊模型競賽', 'SAME OPPORTUNITIES · SAME RISK UNIT')
+    section('基準版本競賽', 'SAME OPPORTUNITIES · SAME RISK UNIT')
     if incumbent and challenger:
         report=compare(rows,incumbent['id'],challenger['id'],mode,sum(r['status']=='unresolved' for r in rows))
     else:
@@ -51,7 +51,7 @@ def growth_center(db, profile, mode, rows):
         st.dataframe(pd.DataFrame([{'晉升比較條件':k,'通過':v} for k,v in report['checks'].items()]),hide_index=True,width='stretch')
         st.caption(report['note']+' 候選本身也必須通過獲利與風險門檻；不是僅靠勝率升級。')
         st.download_button('匯出模型競賽證據',json.dumps(report,ensure_ascii=False,indent=2),file_name=profile+'-competition.json',mime='application/json')
-    else:st.info('尚無可比較的新舊模型。不以回測冒充競賽，不捏造進步曲線。')
+    else:st.info('尚無基準版本對照；多模型競賽請看下方AI強化實驗室。')
     if learner.get('history'):
         st.dataframe(pd.DataFrame([{k:h.get(k) for k in ('at','decision','old','candidate','reason')} for h in learner['history']]),hide_index=True,width='stretch')
 

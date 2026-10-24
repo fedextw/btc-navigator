@@ -131,12 +131,17 @@ def frontend(page):
         markets=market_rows(db,mode);symbols=[r['交易對'] for r in markets]
         trades=[]
         fresh_prices={r['交易對']:r['標記價格'] for r in markets}
+        from ai_diagnostics import guard
         for key in PROFILES:
             stats=summary(journal,key,mode);model=load(journal,key,mode).get('incumbent')
             proof=evidence(selected_forward([r for r in stats['rows'] if r['status']=='closed'],model['id']) if model else [],mode,stats['unresolved'])
             for t in stats['rows']:
                 if t['status'] not in ('pending','open'):continue
                 qualified=bool(model and proof['target_pass'] and any(p['model_id']==model['id'] and p['selected'] for p in t.get('model_predictions',[])))
+                if model and t['status']=='pending':
+                    safety=guard([r for r in stats['rows'] if r['status']=='closed'],model['id'],t)
+                    qualified=qualified and not safety['blocked']
+                    if safety['blocked']:t={**t,'_front_blocked':'AI退化／行情適配／不確定性暫停新訊號'}
                 if stats['unresolved'] and t['status']=='pending':t={**t,'_front_blocked':'策略有未知部位，暫不顯示新入場候選'}
                 if mode=='live' and t['status']=='pending':
                     mark=fresh_prices.get(t['symbol'])
@@ -154,7 +159,7 @@ def frontend(page):
             verified=st.checkbox('只看通過獲利風險門檻的候選',False)
             cards=candidate_cards(trades,profile,side,query,verified)
             section('有效訊號','ENTRY · TAKE PROFIT · STOP LOSS')
-            if not cards:st.info('目前沒有符合篩選的有效候選。已過期或持倉紀錄不作新入場訊號；報價缺漏、偏離或篩選條件不符時，也不顯示候選。')
+            if not cards:st.info('目前沒有符合篩選的有效候選。已過期或持倉紀錄不作新入場訊號；報價缺漏、AI風險觀察中或篩選條件不符時，也不顯示候選。')
             page_no=st.number_input('訊號頁碼',min_value=1,max_value=max(1,(len(cards)+11)//12),value=1,step=1) if len(cards)>12 else 1
             columns=st.columns(2)
             for i,(t,q) in enumerate(cards[(page_no-1)*12:page_no*12]):

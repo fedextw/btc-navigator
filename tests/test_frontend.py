@@ -29,7 +29,7 @@ class FrontendTests(unittest.TestCase):
         now=time.time()
         with tempfile.TemporaryDirectory() as root:
             db=connect(root);set_state(db,'universe',{'symbols':['BTCUSDT','NEWUSDT']})
-            set_state(db,'risk_quotes',{'mode':'live','marks':{'BTCUSDT':{'markPrice':'100','time':now*1000},'NEWUSDT':{'markPrice':'50','time':(now-121)*1000}}})
+            set_state(db,'risk_quotes',{'mode':'live','marks':{'BTCUSDT':{'markPrice':'100','time':int(now*1000)},'NEWUSDT':{'markPrice':'50','time':(now-121)*1000}}})
             set_state(db,'tickers',{'fetched_at':now,'rows':{'NEWUSDT':{'priceChangePercent':'3','quoteVolume':'50000'}}})
             rows=market_rows(db,'live',now)
             self.assertEqual(len(rows),2);self.assertEqual(rows[0]['標記價格'],100)
@@ -40,7 +40,7 @@ class FrontendTests(unittest.TestCase):
     def test_demo_does_not_relabel_live_quotes_as_demo(self):
         now=time.time()
         with tempfile.TemporaryDirectory() as root:
-            db=connect(root);set_state(db,'universe',{'symbols':['BTCUSDT']});set_state(db,'risk_quotes',{'mode':'live','marks':{'BTCUSDT':{'markPrice':'100','time':now*1000}}})
+            db=connect(root);set_state(db,'universe',{'symbols':['BTCUSDT']});set_state(db,'risk_quotes',{'mode':'live','marks':{'BTCUSDT':{'markPrice':'100','time':int(now*1000)}}})
             self.assertIsNone(market_rows(db,'demo',now)[0]['標記價格']);db.close()
 
     def test_watchlist_persists_without_accepting_paths(self):

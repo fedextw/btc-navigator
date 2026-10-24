@@ -68,6 +68,8 @@ def learning_panel(db,profile,mode,rows):
     chosen=selected_forward(closed,model['id']) if model else []
     proof=evidence(chosen,mode,sum(r['status']=='unresolved' for r in rows))
     growth_center(db,profile,mode,rows)
+    from ai_intelligence_ui import intelligence_panel
+    intelligence_panel(db,profile,mode,rows)
     section('獲利與風險研究資格','FORWARD EVIDENCE / NO WIN-RATE TARGET')
     a,b,c,d=st.columns(4)
     mean=proof['stats']['expectancy_pct']
@@ -175,6 +177,9 @@ def strategy_page():
             for t in stats['rows']:
                 if t['status'] not in ('pending','open'):continue
                 qualifies=bool(model and proof['target_pass'] and any(p['model_id']==model['id'] and p['selected'] for p in t.get('model_predictions',[])))
+                if model:
+                    from ai_diagnostics import guard
+                    qualifies=qualifies and not guard(closed,model['id'],t)['blocked']
                 if not only_verified or qualifies:cards.append((t,qualifies))
         cards.sort(key=lambda pair:pair[0]['created_at'],reverse=True)
         if cards:

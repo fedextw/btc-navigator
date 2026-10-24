@@ -101,6 +101,17 @@ def cycle(service,root=STATE_ROOT):
                             try:funding_data=funding_history(service.client,symbol,start,end)
                             except Exception:pass  # Saved trade will explicitly retain an estimated cost source.
                     live_quotes,_=risk_quotes(root)  # Re-read after any long cycle or funding request.
+                    point=live_quotes.get(symbol,{})
+                    exchange={'observed_at':str(pd.Timestamp(point['mark_time'],unit='s',tz='UTC')) if point.get('mark_time') else None,'funding_pct':point.get('funding_pct'),'oi_change_pct':None}
+                    from collector import connect as context_db
+                    source_db=context_db(root)
+                    try:
+                        sample=source_db.execute("SELECT observed_at,oi_change FROM snapshots WHERE symbol=? AND mode=? AND oi_change IS NOT NULL ORDER BY observed_at DESC LIMIT 1",(symbol,mode)).fetchone()
+                        if sample and 0<=(pd.Timestamp.now(tz='UTC')-pd.Timestamp(sample[0])).total_seconds()<=600:
+                            # Separate timestamps prevent re-dating old OI with a new funding quote.
+                            local_context['oi_snapshot']={'observed_at':sample[0],'oi_change_pct':sample[1]}
+                    finally:source_db.close()
+                    local_context['exchange']=exchange
                     plan=process(db,base,higher,key,symbol,mode,profile_risk,context=local_context,allow_new=symbol in eligible,quote_context=live_quotes.get(symbol),funding_context=funding_data)
                     from strategy_alerts import emit
                     emit(db,signals,plan,settings)
@@ -112,6 +123,8 @@ def cycle(service,root=STATE_ROOT):
                 status['updated_at']=time.time();state(db,'worker',status)
         for profile in PROFILES:
             learner=update(db,profile,mode)
+            from ai_model_lab import update_lab
+            update_lab(db,profile,mode)
             count=learner.get('closed_samples',0)
             key=f'patterns_count/{profile}/{mode}'
             old=state(db,key)
