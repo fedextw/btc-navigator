@@ -18,7 +18,7 @@ class ForwardHealthTests(unittest.TestCase):
             run_periodic(td,interval_seconds=300,cycles=1,
                          runner=lambda _:{"status":"completed"})
             self.assertEqual(read_latest(td)["state"],"completed")
-            self.assertEqual(len(list((Path(td)/"agent-forward-health").glob("*.json"))),1)
+            self.assertEqual(len(list((Path(td)/"agent-forward-health").glob("*.json"))),2)
 
 if __name__=="__main__":
     unittest.main()
