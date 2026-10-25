@@ -1,0 +1,45 @@
+"""Read-only, bounded status parser for Streamlit agent research panel."""
+import json
+from pathlib import Path
+
+MAX_STATUS_BYTES = 256_000
+MAX_ITEMS = 10
+
+
+def load_status(state_root):
+    path = Path(state_root) / "agent-status" / "latest.json"
+    if not path.is_file():
+        return {"state": "not_started", "items": [], "message": "尚無排程紀錄；研究排程器尚未啟用。"}
+    if path.stat().st_size > MAX_STATUS_BYTES:
+        return {"state": "invalid", "items": [], "message": "狀態檔案大小異常，拒絕顯示。"}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if payload.get("schema") != "agent-scheduler-v1" or payload.get("live_trading_authorized") is not False:
+            raise ValueError("不認得的狀態版本或交易授權欄位")
+        items = payload["items"]
+        if not isinstance(items, list) or len(items) > MAX_ITEMS:
+            raise ValueError("研究項目格式不正確")
+        clean = []
+        for item in items:
+            if not isinstance(item, dict) or item.get("status") not in ("completed", "skipped"):
+                raise ValueError("研究紀錄格式不正確")
+            outcome = item.get("result") or {}
+            clean.append({"symbol": str(item.get("symbol",""))[:32], "at": str(item.get("at",""))[:40],
+                "status": item["status"], "selected": str(outcome.get("selected") or "—")[:64],
+                "decision": str(outcome.get("status") or "—")[:64],
+                "reason": str(outcome.get("reason") or item.get("error_type") or "—")[:160],
+                "bars": outcome.get("bars") if isinstance(outcome.get("bars"), int) else None})
+        return {"state":"available", "items":clean, "message":"最近一次研究批次（只讀）"}
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, json.JSONDecodeError):
+        return {"state":"invalid", "items":[], "message":"研究狀態格式不正確，未採用任何交易訊號。"}
+
+
+def render(state_root):
+    import streamlit as st
+    st.title("AI Agent 研究中心")
+    st.caption("僅顯示獨立研究排程的結果。不提供新下單訊號、不修改模型，也不自動啟動排程。")
+    record = load_status(state_root)
+    st.info(record["message"])
+    if record["items"]:
+        st.dataframe(record["items"], use_container_width=True, hide_index=True)
+    st.caption("研究結果為模擬研究，不代表可成交績效；正式策略與交易系統未獲得任何新授權。")
