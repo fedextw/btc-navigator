@@ -16,6 +16,9 @@ def load_status(state_root):
         payload = json.loads(path.read_text(encoding="utf-8"))
         if payload.get("schema") != "agent-scheduler-v1" or payload.get("live_trading_authorized") is not False:
             raise ValueError("不認得的狀態版本或交易授權欄位")
+        phase = payload.get("phase", "completed")
+        if phase not in ("running", "completed", "error"):
+            raise ValueError("不認得的研究執行階段")
         items = payload["items"]
         if not isinstance(items, list) or len(items) > MAX_ITEMS:
             raise ValueError("研究項目格式不正確")
@@ -32,7 +35,12 @@ def load_status(state_root):
                 "decision": str(outcome.get("status") or "—")[:64],
                 "reason": str(outcome.get("reason") or item.get("error_type") or "—")[:160],
                 "bars": outcome.get("bars") if isinstance(outcome.get("bars"), int) else None})
-        return {"state":"available", "items":clean, "message":"最近一次研究批次（只讀）"}
+        text = {"running":"研究程序正在執行（如長時間不更新，請檢查研究日誌）。",
+                "completed":"最近一次研究批次（只讀）",
+                "error":"最近一次研究程序出錯，請檢查 agent-research.log。"}[phase]
+        return {"state":phase, "items":clean, "message":text,
+                "started_at":str(payload.get("started_at") or "")[:40],
+                "finished_at":str(payload.get("finished_at") or "")[:40]}
     except (OSError, ValueError, TypeError, KeyError, AttributeError, json.JSONDecodeError):
         return {"state":"invalid", "items":[], "message":"研究狀態格式不正確，未採用任何交易訊號。"}
 
@@ -43,6 +51,10 @@ def render(state_root):
     st.caption("僅顯示獨立研究排程的結果。不提供新下單訊號、不修改模型，也不自動啟動排程。")
     record = load_status(state_root)
     st.info(record["message"])
+    if record.get("started_at"):
+        st.caption("研究開始（UTC）：" + record["started_at"])
+    if record.get("finished_at"):
+        st.caption("最後完成（UTC）：" + record["finished_at"])
     if record["items"]:
         st.dataframe(record["items"], use_container_width=True, hide_index=True)
     st.caption("研究結果為模擬研究，不代表可成交績效；正式策略與交易系統未獲得任何新授權。")
