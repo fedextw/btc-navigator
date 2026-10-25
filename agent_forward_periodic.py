@@ -24,6 +24,10 @@ def run_periodic(state_dir, *, interval_seconds=3600, cycles=1, sleep=time.sleep
                         "registered":(result.get("registered") or {}).get("registered",0),
                         "observed":(result.get("observed") or {}).get("observed",0),
                         "live_trading_authorized":False})
+        # Preserve per-cycle evidence before any sleep or interruption.
+        append_status(state_dir,{"status":status or "invalid",
+                                 "cycles":[results[-1]],
+                                 "live_trading_authorized":False})
         # Never spin on stale lock or a failed stage.
         if status!="completed":
             break
