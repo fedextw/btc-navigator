@@ -95,4 +95,12 @@ def render(state_root):
         summary[2].metric("其他略過", counts.get("skipped_other",0))
     if record["items"]:
         st.dataframe(record["items"], use_container_width=True, hide_index=True)
+    st.subheader("獨立前向模擬績效")
+    from agent_forward_dashboard import summarize_forward
+    forward = summarize_forward(state_root)
+    if forward["rows"]:
+        st.dataframe(forward["rows"],use_container_width=True,hide_index=True)
+    else:
+        st.info("尚無已登記的前向模擬策略，不能推論已有模擬獲利。")
+    st.caption("僅為離線假設成交估算；非真實成交，尚未計入完整資金費率及實際滑價。")
     st.caption("研究結果為模擬研究，不代表可成交績效；正式策略與交易系統未獲得任何新授權。")
