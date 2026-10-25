@@ -5,6 +5,7 @@ No automatic promotion, strategy code generation or live orders.
 """
 import argparse
 import json
+from pathlib import Path
 from agent_research_scheduler import run_once
 from agent_stage5_batch import review_enrolled, save_review_snapshot
 from agent_research_universe import next_batch
@@ -40,18 +41,43 @@ def run_research_review(state_dir, *, symbols=None, now=None, save=False,
         result["review_snapshot"]=str(path)
     return result
 
-def run_rotation(state_dir, *, rounds=3, start_batch=0, cycle_runner=run_research_review):
+def run_rotation(state_dir, *, rounds=3, start_batch=0, cycle_runner=run_research_review,
+                 resume=False):
+
     """Bounded multi-batch research; no hidden daemon or trading."""
     if type(rounds) is not int or not 1<=rounds<=10 or type(start_batch) is not int or start_batch<0:
         raise ValueError("研究輪次不合法")
+    progress=Path(state_dir)/"agent-stage5-rotation-progress.json"
+    if resume:
+        if progress.is_file():
+            if progress.stat().st_size>4096: raise ValueError("研究進度檔異常")
+            saved=json.loads(progress.read_text(encoding="utf-8"))
+            if (saved.get("schema")!="agent-stage5-progress-v1" or
+                type(saved.get("next_batch")) is not int or saved["next_batch"]<0 or
+                saved.get("live_trading_authorized") is not False):
+                raise ValueError("研究進度無法驗證")
+            start_batch=saved["next_batch"]
     results=[]
     for index in range(rounds):
-        item=cycle_runner(state_dir,batch_number=start_batch+index)
+        current=start_batch+index
+        item=cycle_runner(state_dir,batch_number=current)
         if (not isinstance(item,dict) or item.get("schema")!="agent-stage5-cycle-v1"
                 or item.get("live_trading_authorized") is not False
                 or item.get("automatic_promotion_authorized") is not False):
             raise ValueError("輪替研究結果不符合安全要求")
         results.append(item)
+        if resume and "research" in item:
+            # Atomic checkpoint only after a fully returned safe research cycle.
+            checkpoint={"schema":"agent-stage5-progress-v1","next_batch":current+1,
+                        "live_trading_authorized":False,"automatic_promotion_authorized":False}
+            import os
+            import tempfile
+            progress.parent.mkdir(parents=True,exist_ok=True)
+            with tempfile.NamedTemporaryFile("w",dir=progress.parent,encoding="utf-8",
+                                             suffix=".tmp",delete=False) as out:
+                json.dump(checkpoint,out,ensure_ascii=False)
+                temporary=out.name
+            os.replace(temporary,progress)
         if item.get("status")=="waiting_for_research_ready_symbols":
             break
     return {"schema":"agent-stage5-rotation-v1","cycles":results,
@@ -66,6 +92,7 @@ def main():
     parser.add_argument("--batch-number",type=int,default=0)
     parser.add_argument("--save-review",action="store_true")
     parser.add_argument("--rounds",type=int,default=1,help="輪替研究最多10批；不會常駐或自動下單")
+    parser.add_argument("--resume",action="store_true",help="使用本機已驗證的研究批次進度")
     args=parser.parse_args()
     if args.rounds==1:
         report=run_research_review(args.state_dir,symbols=args.symbols,batch_number=args.batch_number,
@@ -73,7 +100,7 @@ def main():
     else:
         if args.symbols or args.save_review:
             parser.error("多批輪替僅適用動態標的池且不寫入審查快照")
-        report=run_rotation(args.state_dir,rounds=args.rounds,start_batch=args.batch_number)
+        report=run_rotation(args.state_dir,rounds=args.rounds,start_batch=args.batch_number,resume=args.resume)
     print(json.dumps(report,ensure_ascii=False,indent=2))
 
 if __name__=="__main__":
