@@ -38,7 +38,7 @@ def load_status(state_root):
         text = {"running":"研究程序正在執行（如長時間不更新，請檢查研究日誌）。",
                 "completed":"最近一次研究批次（只讀）",
                 "error":"最近一次研究程序出錯，請檢查 agent-research.log。"}[phase]
-        return {"state":phase, "items":clean, "message":text,
+        return {"state":"available" if phase == "completed" else phase, "phase":phase, "items":clean, "message":text,
                 "started_at":str(payload.get("started_at") or "")[:40],
                 "finished_at":str(payload.get("finished_at") or "")[:40]}
     except (OSError, ValueError, TypeError, KeyError, AttributeError, json.JSONDecodeError):
