@@ -12,7 +12,7 @@ from agent_state_research import run_from_state
 
 def run_once(state_dir, symbols=("BTCUSDT",), interval="1h", mode="live", runner=run_from_state, proposal_runner=None):
     """Bounded batch, log each attempt, never interrupt other symbols after one failure."""
-    from market_data import valid_symbol
+    from agent_symbol_validation import valid_symbol
     if interval not in ("15m", "1h", "4h") or mode not in ("demo", "live"):
         raise ValueError("研究參數不正確")
     if not 1 <= len(symbols) <= 10 or len(set(symbols)) != len(symbols) or not all(valid_symbol(s) for s in symbols):
