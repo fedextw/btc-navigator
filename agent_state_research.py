@@ -14,7 +14,7 @@ INTERVAL_SECONDS = {"15m": 900, "1h": 3600, "4h": 14400}
 
 def history_from_database(db_path, symbol, interval, mode):
     from datetime import datetime
-    from market_data import valid_symbol
+    from agent_symbol_validation import valid_symbol
     if not valid_symbol(symbol) or interval not in INTERVAL_SECONDS or mode not in ("live", "demo"):
         raise ValueError("研究參數不正確")
     db_path = Path(db_path).resolve(strict=True)
