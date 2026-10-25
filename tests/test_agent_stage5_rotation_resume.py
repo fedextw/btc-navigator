@@ -10,7 +10,7 @@ class RotationResumeTests(unittest.TestCase):
             seen=[]
             def runner(state,*,batch_number):
                 seen.append(batch_number)
-                return {"schema":"agent-stage5-cycle-v1","research":{},
+                return {"schema":"agent-stage5-cycle-v1","research":{"counts":{"attempted":1,"completed":1},"items":[{"status":"completed"}]},
                         "automatic_promotion_authorized":False,
                         "live_trading_authorized":False}
             run_rotation(td,rounds=2,cycle_runner=runner,resume=True)
@@ -26,6 +26,22 @@ class RotationResumeTests(unittest.TestCase):
                 "automatic_promotion_authorized":False,"live_trading_authorized":False})
             self.assertEqual(result["completed_cycles"],0)
             self.assertFalse((Path(td)/"agent-stage5-rotation-progress.json").exists())
+    def test_partial_batch_remains_retryable_after_restart(self):
+        with tempfile.TemporaryDirectory() as td:
+            seen=[]
+            def partial(state,*,batch_number):
+                seen.append(batch_number)
+                return {"schema":"agent-stage5-cycle-v1",
+                        "research":{"counts":{"attempted":2,"completed":1},
+                                    "items":[{"status":"completed"},{"status":"skipped"}]},
+                        "automatic_promotion_authorized":False,"live_trading_authorized":False}
+            result=run_rotation(td,rounds=3,resume=True,cycle_runner=partial)
+            self.assertEqual(seen,[0])
+            self.assertTrue(result["checkpoint_blocked"])
+            self.assertFalse((Path(td)/"agent-stage5-rotation-progress.json").exists())
+            run_rotation(td,rounds=2,resume=True,cycle_runner=partial)
+            self.assertEqual(seen,[0,0])
+
     def test_unsafe_result_never_writes_checkpoint(self):
         with tempfile.TemporaryDirectory() as td:
             with self.assertRaises(ValueError):
