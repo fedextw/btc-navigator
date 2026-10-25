@@ -1,5 +1,5 @@
 import unittest
-from tests.test_agent_forward_paper import observations
+from test_agent_forward_paper import observations
 from agent_forward_paper import simulate
 
 class ForwardPerformanceTests(unittest.TestCase):
