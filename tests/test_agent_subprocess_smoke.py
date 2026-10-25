@@ -57,7 +57,14 @@ class AgentSubprocessSmokeTests(unittest.TestCase):
                                      cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
             try:
                 deadline = time.monotonic() + 12
-                while not (root / "agent-status" / "latest.json").exists():
+                while True:
+                    status_path = root / "agent-status" / "latest.json"
+                    if status_path.exists():
+                        try:
+                            if json.loads(status_path.read_text(encoding="utf-8")).get("phase") == "completed":
+                                break
+                        except (ValueError, OSError):
+                            pass
                     if first.poll() is not None:
                         self.fail("first scheduler quit unexpectedly")
                     if time.monotonic() > deadline:
