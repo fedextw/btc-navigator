@@ -7,6 +7,7 @@ from agent_forward_health_summary import inspect_forward_health
 from agent_forward_gap_diagnostic import diagnose
 from agent_forward_continuity import summarize_continuity
 from agent_stage4_runtime_window import inspect_window
+from agent_stage4_market_freshness import inspect_freshness
 from datetime import datetime,timezone
 from pathlib import Path
 import json
@@ -16,6 +17,7 @@ def audit(state_dir, *, now=None):
     gaps=diagnose(state_dir,max_enrollments=10)
     continuity=summarize_continuity(state_dir)
     runtime=inspect_window(state_dir,now=now or datetime.now(timezone.utc).isoformat())
+    market=inspect_freshness(state_dir,now=now)
     # CI regression results must be supplied explicitly and cannot stand in
     # for an on-machine recovery drill or measured uptime.
     ci=Path(state_dir)/"agent-stage4-ci-evidence.json"
@@ -51,6 +53,7 @@ def audit(state_dir, *, now=None):
         "journal_continuity":continuity["status"]=="recorded_history_only",
         "runtime_journal_72h_coverage":runtime.get("journal_coverage_verified") is True,
         "long_duration_runtime_verified":False,
+        "local_market_candle_recent":market["local_candle_recent"],
         "exchange_data_freshness_verified":False,
         "recovery_drill_verified":False,
         "recovery_ci_regression_reported":ci_verified,
@@ -63,6 +66,7 @@ def audit(state_dir, *, now=None):
             "health_status":health["status"],"gap_status":gaps["status"],
             "continuity_status":continuity["status"],
             "runtime_window_status":runtime["status"],
+            "market_freshness_status":market["status"],
             "ci_evidence_status":"reported" if ci_verified else "not_supplied",
             "isolated_drill_status":"reported" if drill_verified else "not_supplied",
             "note":"此檢查不會自動宣告階段通過；長時間運作、真實行情和恢復演練須有獨立證據。",
