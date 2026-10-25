@@ -1,5 +1,7 @@
 import tempfile
 import unittest
+from pathlib import Path
+from agent_forward_health import read_latest
 from agent_forward_periodic import run_periodic
 
 class ForwardPeriodicTests(unittest.TestCase):
@@ -22,6 +24,17 @@ class ForwardPeriodicTests(unittest.TestCase):
                            runner=lambda _: {"status":"already_running_or_stale_lock"})
             self.assertEqual(len(r["cycles"]),1)
             self.assertEqual(r["status"],"stopped")
+
+    def test_interrupted_sleep_retains_last_cycle_journal(self):
+        def broken_sleep(_):
+            raise RuntimeError("simulated shutdown")
+        with tempfile.TemporaryDirectory() as td:
+            with self.assertRaises(RuntimeError):
+                run_periodic(td,interval_seconds=300,cycles=2,sleep=broken_sleep,
+                             runner=lambda _: {"status":"completed"})
+            records=list((Path(td)/"agent-forward-health").glob("*.json"))
+            self.assertEqual(len(records),1)
+            self.assertEqual(read_latest(td)["state"],"completed")
 
     def test_invalid_schedule_rejected(self):
         with tempfile.TemporaryDirectory() as td:
