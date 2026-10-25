@@ -31,7 +31,8 @@ class CSVResearchTests(unittest.TestCase):
 
     def test_future_holdout_not_used_to_choose(self):
         a = research(self.path)
-        rows = list(csv.reader(self.path.open(encoding="utf-8")))
+        with self.path.open(encoding="utf-8", newline="") as source:
+            rows = list(csv.reader(source))
         for row in rows[1+288:]:
             for j in (1,2,3,4):
                 row[j] = str(float(row[j])+1000)
