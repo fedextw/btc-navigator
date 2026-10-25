@@ -47,7 +47,7 @@ def save_review_snapshot(state_dir, report):
             or report.get("automatic_promotion_authorized") is not False
             or report.get("live_trading_authorized") is not False):
         raise ValueError("不合法的策略審查報告")
-    payload=json.dumps(report,ensure_ascii=False,sort_keys=True,allow_nan=False)+"\\n"
+    payload=json.dumps(report,ensure_ascii=False,sort_keys=True,allow_nan=False)+"\n"
     digest=hashlib.sha256(payload.encode("utf-8")).hexdigest()
     folder=Path(state_dir)/"agent-stage5-decisions"
     folder.mkdir(parents=True,exist_ok=True)
