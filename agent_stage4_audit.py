@@ -17,7 +17,27 @@ def audit(state_dir, *, now=None):
     gaps=diagnose(state_dir,max_enrollments=10)
     continuity=summarize_continuity(state_dir)
     runtime=inspect_window(state_dir,now=now or datetime.now(timezone.utc).isoformat())
-    market=inspect_freshness(state_dir,now=now)
+    # Inspect enrolled contracts individually; the global maximum can hide
+    # stale markets. A bounded enrollment scan never modifies user state.
+    enrolled=[]
+    folder=Path(state_dir)/"agent-forward"
+    try:
+        files=sorted(folder.glob("*.json")) if folder.is_dir() else []
+        if len(files)>1000: raise ValueError("too many enrollments")
+        for entry_path in files:
+            if entry_path.stat().st_size>8192: raise ValueError("enrollment too large")
+            entry=json.loads(entry_path.read_text(encoding="utf-8"))
+            symbol=entry.get("symbol")
+            if entry.get("schema")!="agent-forward-enrollment-v1" or entry.get("live_trading_authorized") is not False:
+                raise ValueError("invalid enrollment")
+            if not isinstance(symbol,str) or not symbol.endswith("USDT") or not symbol.isalnum() or len(symbol)>32:
+                raise ValueError("invalid symbol")
+            if symbol not in enrolled: enrolled.append(symbol)
+            if len(enrolled)>30: raise ValueError("symbol audit limit")
+        market=inspect_freshness(state_dir,now=now,symbols=enrolled if enrolled else None)
+    except (OSError,ValueError,TypeError,KeyError):
+        market={"status":"invalid_enrollment_selection","local_candle_recent":False,
+                "exchange_connection_verified":False,"live_trading_authorized":False}
     # CI regression results must be supplied explicitly and cannot stand in
     # for an on-machine recovery drill or measured uptime.
     ci=Path(state_dir)/"agent-stage4-ci-evidence.json"
@@ -53,7 +73,7 @@ def audit(state_dir, *, now=None):
         "journal_continuity":continuity["status"]=="recorded_history_only",
         "runtime_journal_72h_coverage":runtime.get("journal_coverage_verified") is True,
         "long_duration_runtime_verified":False,
-        "local_market_candle_recent":market["local_candle_recent"],
+        "local_market_candle_recent":market["local_candle_recent"] and bool(enrolled),
         "exchange_data_freshness_verified":False,
         "recovery_drill_verified":False,
         "recovery_ci_regression_reported":ci_verified,
@@ -67,6 +87,7 @@ def audit(state_dir, *, now=None):
             "continuity_status":continuity["status"],
             "runtime_window_status":runtime["status"],
             "market_freshness_status":market["status"],
+            "market_checked_symbols":len(enrolled),
             "ci_evidence_status":"reported" if ci_verified else "not_supplied",
             "isolated_drill_status":"reported" if drill_verified else "not_supplied",
             "note":"此檢查不會自動宣告階段通過；長時間運作、真實行情和恢復演練須有獨立證據。",
