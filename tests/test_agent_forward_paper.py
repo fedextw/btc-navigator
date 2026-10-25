@@ -38,6 +38,22 @@ class ForwardPaperTests(unittest.TestCase):
         self.assertTrue(all(t["prospective_signal_observed_before_entry"] is False
                             for t in result["trades_detail"]))
 
+    def test_late_indicator_history_blocks_prospective_classification(self):
+        rows=observations()
+        for row in rows:
+            row["observed_at_utc"]=row["close_time_utc"][:-6]+"59+00:00" if False else row["close_time_utc"]
+        # Produce valid timestamps strictly after close and before next open.
+        for row in rows:
+            from agent_forward_enrollment import _utc
+            row["observed_at_utc"]=(_utc(row["close_time_utc"])+timedelta(microseconds=1)).isoformat()
+        timely=simulate(rows,"trend_8_30")
+        self.assertGreater(timely["prospective_eligible_trades"],0)
+        self.assertIsNotNone(timely["prospective_paper_net_return_pct"])
+        rows[0]["observed_at_utc"]=(datetime(2026,10,30,tzinfo=timezone.utc)).isoformat()
+        later=simulate(rows,"trend_8_30")
+        self.assertEqual(later["prospective_eligible_trades"],0)
+        self.assertIsNone(later["prospective_paper_net_return_pct"])
+
     def test_missing_or_mixed_bars_rejected(self):
         with self.assertRaises(ValueError):
             simulate(observations(gap=True),"trend_8_30")
