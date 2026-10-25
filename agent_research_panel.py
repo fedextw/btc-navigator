@@ -70,6 +70,9 @@ def render(state_root):
     cols[2].metric("Agent 狀態", {"running":"研究中","completed":"已完成",
                    "error":"發生錯誤","missing":"尚無紀錄"}.get(health["agent_status"],"需檢查"))
     st.caption(health["recommendation"])
+    from agent_forward_freshness import assess_freshness
+    forward_health=assess_freshness(state_root)
+    st.caption("前向研究定期健康：" + forward_health["message"])
     st.caption("健康燈號只能確認基本啟動，不代表行情持續更新、研究品質或可實盤下單。")
     from agent_data_readiness import summarize
     with st.expander("USDT 合約研究資料就緒情況", expanded=True):
