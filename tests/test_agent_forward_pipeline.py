@@ -20,8 +20,10 @@ class PipelineTests(unittest.TestCase):
             root=Path(td);folder=root/"agent-forward";folder.mkdir()
             (folder/"bad.json").write_text('{"live_trading_authorized":true}',encoding="utf-8")
             result=run_once(td,now="2026-10-25T12:00:00Z")
-            self.assertEqual(result["status"],"completed")
-            self.assertEqual(result["dashboard"]["rows"][0]["驗證狀態"],"資料異常，未計入")
+            self.assertEqual(result["status"],"blocked_data_gap")
+            self.assertIsNone(result["dashboard"])
+            self.assertEqual(result["data_integrity"]["status"],"gaps_found")
+            self.assertEqual(result["data_integrity"]["gaps"][0]["status"],"invalid_evidence")
             self.assertFalse(result["live_trading_authorized"])
 
     def test_missing_directory_fails_closed(self):
