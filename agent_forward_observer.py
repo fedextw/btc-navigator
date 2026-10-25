@@ -41,7 +41,19 @@ def observe_once(state_dir, *, max_enrollments=3, max_bars_each=5, now=None):
                 if not isinstance(fingerprint,str) or not fingerprint.isalnum() or len(fingerprint)>128:
                     raise ValueError("研究識別不合法")
                 cutoff=max(_utc(enrollment["data_cutoff_utc"]),_utc(enrollment["enrolled_at_utc"]))
-                # Oldest-first, bounded. Future iterations can continue from ledger.
+                folder_out=root/"agent-forward-observations"/fingerprint
+                existing=list(folder_out.glob("*.json")) if folder_out.is_dir() else []
+                if len(existing)>3000: raise ValueError("前向紀錄已達檢查上限")
+                recorded_times=set()
+                for prior in existing:
+                    if prior.stat().st_size>4096: raise ValueError("前向觀測紀錄過大")
+                    saved=json.loads(prior.read_text(encoding="utf-8"))
+                    if saved.get("research_sha256")!=fingerprint or saved.get("symbol")!=symbol:
+                        raise ValueError("前向紀錄來源不一致")
+                    recorded_times.add(_utc(saved["candle_time_utc"]))
+                # Advance beyond saved observations across bounded batches.
+                if recorded_times:
+                    cutoff=max(cutoff,max(recorded_times))
                 query=db.execute("SELECT time,close_time,open,high,low,close,volume FROM candles "
                                  "WHERE symbol=? AND interval='1h' AND mode='live' AND time>? "
                                  "ORDER BY time ASC LIMIT ?",
@@ -50,11 +62,8 @@ def observe_once(state_dir, *, max_enrollments=3, max_bars_each=5, now=None):
                     bar={"time":row[0],"close_time":row[1],"open":row[2],
                          "high":row[3],"low":row[4],"close":row[5],"volume":row[6]}
                     if _utc(bar["close_time"])>=observed: continue
-                    folder_out=root/"agent-forward-observations"/fingerprint
-                    before=len(list(folder_out.glob("*.json"))) if folder_out.is_dir() else 0
                     record_candle(enrollment,bar,folder_out,observed_at=observed.isoformat())
-                    after=len(list(folder_out.glob("*.json")))
-                    stats["observed"]+=int(after>before)
+                    stats["observed"]+=1
             except (OSError,ValueError,TypeError,KeyError,RuntimeError,sqlite3.Error):
                 stats["skipped"]+=1
     return stats
