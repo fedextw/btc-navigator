@@ -18,7 +18,7 @@ class BackupTests(unittest.TestCase):
             report=backup_state(state,destination)
             self.assertEqual(len(report["files"]),1)
             self.assertTrue(verify_backup(destination))
-            with sqlite3.connect(destination/"research.sqlite3") as db:
+            with closing(sqlite3.connect(destination/"research.sqlite3")) as db:
                 self.assertEqual(db.execute("SELECT value FROM example").fetchone()[0],"test")
 
     def test_reject_backup_into_state_directory(self):
@@ -30,7 +30,7 @@ class BackupTests(unittest.TestCase):
     def test_reject_tampered_archive(self):
         with tempfile.TemporaryDirectory() as tmp:
             state=Path(tmp)/"state";state.mkdir()
-            with sqlite3.connect(state/"research.sqlite3") as db:
+            with closing(sqlite3.connect(state/"research.sqlite3")) as db:
                 db.execute("CREATE TABLE foo(a INTEGER)")
             destination=Path(tmp)/"backup"
             backup_state(state,destination)
