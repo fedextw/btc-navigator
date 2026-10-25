@@ -7,6 +7,7 @@ import json
 import time
 from pathlib import Path
 from agent_forward_guarded import guarded_run
+from agent_forward_health import append_status
 
 def run_periodic(state_dir, *, interval_seconds=3600, cycles=1, sleep=time.sleep, runner=guarded_run):
     if type(interval_seconds) is not int or not 300<=interval_seconds<=86400:
@@ -28,9 +29,11 @@ def run_periodic(state_dir, *, interval_seconds=3600, cycles=1, sleep=time.sleep
             break
         if n+1<cycles:
             sleep(interval_seconds)
-    return {"schema":"agent-forward-periodic-v1","paper_only":True,
+    report={"schema":"agent-forward-periodic-v1","paper_only":True,
             "live_trading_authorized":False,"cycles":results,
             "status":"completed" if results and all(r["status"]=="completed" for r in results) else "stopped"}
+    append_status(state_dir,report)
+    return report
 
 def main():
     p=argparse.ArgumentParser(description="受控前向研究週期執行，僅模擬")
