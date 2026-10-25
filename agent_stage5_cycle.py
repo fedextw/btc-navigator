@@ -66,8 +66,20 @@ def run_rotation(state_dir, *, rounds=3, start_batch=0, cycle_runner=run_researc
                 or item.get("automatic_promotion_authorized") is not False):
             raise ValueError("輪替研究結果不符合安全要求")
         results.append(item)
-        if resume and "research" in item:
-            # Atomic checkpoint only after a fully returned safe research cycle.
+        # Do not mark a batch complete if any symbol was skipped or data was
+        # unavailable. It must remain retryable on the next invocation.
+        research=item.get("research")
+        counts=research.get("counts") if isinstance(research,dict) else None
+        fully_completed=(isinstance(counts,dict) and
+                         type(counts.get("attempted")) is int and counts["attempted"]>0 and
+                         type(counts.get("completed")) is int and
+                         counts["completed"]==counts["attempted"] and
+                         isinstance(research.get("items"),list) and
+                         len(research["items"])==counts["attempted"] and
+                         all(isinstance(x,dict) and x.get("status")=="completed"
+                             for x in research["items"]))
+        if resume and fully_completed:
+            # Atomic checkpoint only after every symbol completed safely.
             checkpoint={"schema":"agent-stage5-progress-v1","next_batch":current+1,
                         "live_trading_authorized":False,"automatic_promotion_authorized":False}
             import os
@@ -78,9 +90,10 @@ def run_rotation(state_dir, *, rounds=3, start_batch=0, cycle_runner=run_researc
                 json.dump(checkpoint,out,ensure_ascii=False)
                 temporary=out.name
             os.replace(temporary,progress)
-        if item.get("status")=="waiting_for_research_ready_symbols":
+        if item.get("status")=="waiting_for_research_ready_symbols" or (resume and not fully_completed):
             break
     return {"schema":"agent-stage5-rotation-v1","cycles":results,
+            "checkpoint_blocked":bool(resume and results and not fully_completed),
             "completed_cycles":sum("research" in item for item in results),
             "automatic_promotion_authorized":False,"live_trading_authorized":False,
             "paper_only":True}
