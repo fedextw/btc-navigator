@@ -66,6 +66,15 @@ class FullStackSmokeTest(unittest.TestCase):
                     process.kill()
                     process.wait(timeout=10)
                 self.assertEqual(process.returncode, 0, "啟動器無法正常結束")
+                # Verify the child website actually released its port.
+                deadline = time.monotonic() + 8
+                while time.monotonic() < deadline:
+                    with socket.socket() as probe:
+                        if probe.connect_ex(("127.0.0.1", port)) != 0:
+                            break
+                    time.sleep(.2)
+                else:
+                    self.fail("網站子程序仍佔用測試連接埠")
 
 
 if __name__=="__main__":
