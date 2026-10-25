@@ -40,8 +40,6 @@ class ForwardPaperTests(unittest.TestCase):
 
     def test_late_indicator_history_blocks_prospective_classification(self):
         rows=observations()
-        for row in rows:
-            row["observed_at_utc"]=row["close_time_utc"][:-6]+"59+00:00" if False else row["close_time_utc"]
         # Produce valid timestamps strictly after close and before next open.
         for row in rows:
             from agent_forward_enrollment import _utc
