@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+import json
 from pathlib import Path
 from agent_forward_health import append_status,read_latest
 from agent_forward_periodic import run_periodic
@@ -18,7 +19,11 @@ class ForwardHealthTests(unittest.TestCase):
             run_periodic(td,interval_seconds=300,cycles=1,
                          runner=lambda _:{"status":"completed"})
             self.assertEqual(read_latest(td)["state"],"completed")
-            self.assertEqual(len(list((Path(td)/"agent-forward-health").glob("*.json"))),2)
+            records=sorted((Path(td)/"agent-forward-health").glob("*.json"))
+            self.assertEqual(len(records),2)
+            payloads=[json.loads(path.read_text(encoding="utf-8")) for path in records]
+            self.assertEqual([p["cycles"] for p in payloads],[1,1])
+            self.assertTrue(all(p["status"]=="completed" and p["live_trading_authorized"] is False for p in payloads))
 
 if __name__=="__main__":
     unittest.main()
