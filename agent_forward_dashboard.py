@@ -32,6 +32,7 @@ def summarize_forward(state_dir, max_enrollments=12):
             rows.append({"合約":str(entry["symbol"])[:32],"策略":str(entry["strategy"])[:40],
                          "前向交易筆數":result.get("trades",0),
                          "可核對即時訊號筆數":result.get("prospective_eligible_trades",0),
+                         "已驗證可成交筆數":result.get("verified_executable_trades",0),
                          "及時觀測假設淨報酬％":result.get("prospective_paper_net_return_pct"),
                          "及時觀測勝率％":result.get("prospective_paper_win_rate_pct"),
                          "及時觀測獲利因子":result.get("prospective_paper_profit_factor"),
