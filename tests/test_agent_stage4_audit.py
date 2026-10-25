@@ -14,8 +14,20 @@ class StageFourAuditTests(unittest.TestCase):
                           stamp="2026-10-25T23:00:00Z")
             recent=audit(td,now="2026-10-26T00:00:00Z")
             self.assertTrue(recent["checks"]["periodic_health"])
+            self.assertFalse(recent["checks"]["journal_continuity"])
             self.assertFalse(recent["checks"]["long_duration_runtime_verified"])
             self.assertEqual(recent["status"],"requires_more_evidence")
+
+    def test_two_recent_entries_are_record_history_not_runtime_proof(self):
+        with tempfile.TemporaryDirectory() as td:
+            data={"status":"completed","cycles":[],"live_trading_authorized":False}
+            append_status(td,data,stamp="2026-10-25T22:00:00Z")
+            append_status(td,data,stamp="2026-10-25T23:00:00Z")
+            result=audit(td,now="2026-10-26T00:00:00Z")
+            self.assertTrue(result["checks"]["journal_continuity"])
+            self.assertEqual(result["continuity_status"],"recorded_history_only")
+            self.assertFalse(result["checks"]["long_duration_runtime_verified"])
+            self.assertEqual(result["status"],"requires_more_evidence")
 
     def test_lock_blocks_acceptance(self):
         with tempfile.TemporaryDirectory() as td:
