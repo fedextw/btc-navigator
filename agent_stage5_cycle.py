@@ -40,15 +40,41 @@ def run_research_review(state_dir, *, symbols=None, now=None, save=False,
         result["review_snapshot"]=str(path)
     return result
 
+def run_rotation(state_dir, *, rounds=3, start_batch=0, cycle_runner=run_research_review):
+    """Bounded multi-batch research; no hidden daemon or trading."""
+    if type(rounds) is not int or not 1<=rounds<=10 or type(start_batch) is not int or start_batch<0:
+        raise ValueError("研究輪次不合法")
+    results=[]
+    for index in range(rounds):
+        item=cycle_runner(state_dir,batch_number=start_batch+index)
+        if (not isinstance(item,dict) or item.get("schema")!="agent-stage5-cycle-v1"
+                or item.get("live_trading_authorized") is not False
+                or item.get("automatic_promotion_authorized") is not False):
+            raise ValueError("輪替研究結果不符合安全要求")
+        results.append(item)
+        if item.get("status")=="waiting_for_research_ready_symbols":
+            break
+    return {"schema":"agent-stage5-rotation-v1","cycles":results,
+            "completed_cycles":sum("research" in item for item in results),
+            "automatic_promotion_authorized":False,"live_trading_authorized":False,
+            "paper_only":True}
+
 def main():
     parser=argparse.ArgumentParser(description="第五階段受控研究循環，不進行真實下單")
     parser.add_argument("--state-dir",required=True)
     parser.add_argument("--symbols",nargs="+",help="指定標的；省略則輪替研究本機已就緒 USDT 合約")
     parser.add_argument("--batch-number",type=int,default=0)
     parser.add_argument("--save-review",action="store_true")
+    parser.add_argument("--rounds",type=int,default=1,help="輪替研究最多10批；不會常駐或自動下單")
     args=parser.parse_args()
-    print(json.dumps(run_research_review(args.state_dir,symbols=args.symbols,batch_number=args.batch_number,
-                                          save=args.save_review),ensure_ascii=False,indent=2))
+    if args.rounds==1:
+        report=run_research_review(args.state_dir,symbols=args.symbols,batch_number=args.batch_number,
+                                   save=args.save_review)
+    else:
+        if args.symbols or args.save_review:
+            parser.error("多批輪替僅適用動態標的池且不寫入審查快照")
+        report=run_rotation(args.state_dir,rounds=args.rounds,start_batch=args.batch_number)
+    print(json.dumps(report,ensure_ascii=False,indent=2))
 
 if __name__=="__main__":
     main()
