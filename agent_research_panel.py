@@ -44,7 +44,8 @@ def load_status(state_root):
                 "error":"最近一次研究程序出錯，請檢查 agent-research.log。"}[phase]
         return {"state":"available" if phase == "completed" else phase, "phase":phase, "items":clean, "message":text,
                 "started_at":str(payload.get("started_at") or "")[:40],
-                "finished_at":str(payload.get("finished_at") or "")[:40]}
+                "finished_at":str(payload.get("finished_at") or "")[:40],
+                "counts": payload.get("counts") if isinstance(payload.get("counts"),dict) else None}
     except (OSError, ValueError, TypeError, KeyError, AttributeError, json.JSONDecodeError):
         return {"state":"invalid", "items":[], "message":"研究狀態格式不正確，未採用任何交易訊號。"}
 
@@ -80,6 +81,12 @@ def render(state_root):
         st.caption("研究開始（UTC）：" + record["started_at"])
     if record.get("finished_at"):
         st.caption("最後完成（UTC）：" + record["finished_at"])
+    if record.get("counts"):
+        counts = record["counts"]
+        summary = st.columns(3)
+        summary[0].metric("本批研究完成", counts.get("completed",0))
+        summary[1].metric("等待資料", counts.get("waiting",0))
+        summary[2].metric("其他略過", counts.get("skipped_other",0))
     if record["items"]:
         st.dataframe(record["items"], use_container_width=True, hide_index=True)
     st.caption("研究結果為模擬研究，不代表可成交績效；正式策略與交易系統未獲得任何新授權。")
