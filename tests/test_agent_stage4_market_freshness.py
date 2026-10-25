@@ -18,7 +18,10 @@ class StageFourMarketFreshnessTests(unittest.TestCase):
             self.assertTrue(result["local_candle_recent"])
             self.assertFalse(result["exchange_connection_verified"])
             stage=audit(td,now="2026-10-26T10:30:00Z")
-            self.assertTrue(stage["checks"]["local_market_candle_recent"])
+            # A recent global candle is not enough without a registered
+            # research universe to audit symbol by symbol.
+            self.assertFalse(stage["checks"]["local_market_candle_recent"])
+            self.assertEqual(stage["market_checked_symbols"],0)
             self.assertFalse(stage["checks"]["exchange_data_freshness_verified"])
 
     def test_old_and_future_bars_fail_closed(self):
