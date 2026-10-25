@@ -29,6 +29,8 @@ def load_status(state_root):
             outcome = item.get("result") or {}
             proposal = outcome.get("proposal_research") if isinstance(outcome.get("proposal_research"), dict) else {}
             backfill = item.get("backfill") if isinstance(item.get("backfill"), dict) else {}
+            evidence = outcome.get("profitability_evidence") if isinstance(outcome.get("profitability_evidence"),dict) else {}
+            heldout = outcome.get("heldout_metrics") if isinstance(outcome.get("heldout_metrics"),dict) else {}
             clean.append({"symbol": str(item.get("symbol",""))[:32], "at": str(item.get("at",""))[:40],
                 "status": item["status"], "selected": str(outcome.get("selected") or "—")[:64],
                 "proposal_status": str(proposal.get("status") or "未啟用")[:64],
@@ -37,6 +39,10 @@ def load_status(state_root):
                              "failed":"補資料失敗","waiting_database":"等待資料庫"}.get(backfill.get("status"),"未啟用"),
                 "backfill_inserted": backfill.get("inserted") if isinstance(backfill.get("inserted"), int) else 0,
                 "decision": str(outcome.get("status") or "—")[:64],
+                "profitability_gate": ("等待獨立前向模擬" if evidence.get("eligible") is True else
+                                       "未通過／證據不足" if evidence else "尚無審核"),
+                "heldout_trades": heldout.get("trades") if type(heldout.get("trades")) is int else None,
+                "net_expectancy_r": round(heldout["net_expectancy_r"],4) if type(heldout.get("net_expectancy_r")) in (int,float) and abs(heldout["net_expectancy_r"]) < 1e9 else None,
                 "reason": ("等待研究資料累積（需至少 300 根連續 K 棒）" if item.get("error_type") == "DataNotReady" else str(outcome.get("reason") or item.get("error_type") or "—")[:160]),
                 "bars": outcome.get("bars") if isinstance(outcome.get("bars"), int) else None})
         text = {"running":"研究程序正在執行（如長時間不更新，請檢查研究日誌）。",
