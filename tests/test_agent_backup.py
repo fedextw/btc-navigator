@@ -1,4 +1,5 @@
 import sqlite3
+from contextlib import closing
 import tempfile
 import unittest
 from pathlib import Path
@@ -9,7 +10,7 @@ class BackupTests(unittest.TestCase):
     def test_backup_and_verify(self):
         with tempfile.TemporaryDirectory() as tmp:
             state=Path(tmp)/"state";state.mkdir()
-            with sqlite3.connect(state/"research.sqlite3") as db:
+            with closing(sqlite3.connect(state/"research.sqlite3")) as db:
                 db.execute("CREATE TABLE example (id INTEGER PRIMARY KEY, value TEXT)")
                 db.execute("INSERT INTO example(value) VALUES ('test')")
                 db.commit()
