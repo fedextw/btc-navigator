@@ -40,6 +40,7 @@ class StateResearchTests(unittest.TestCase):
         with closing(sqlite3.connect(self.db)) as db:
             db.execute("DELETE FROM candles WHERE symbol=? AND interval=? AND mode=? AND time=?",
                 ("BTCUSDT", "1h", "demo", (datetime(2026, 1, 1, tzinfo=timezone.utc) + timedelta(hours=100)).isoformat()))
+            db.commit()
         with self.assertRaises(ValueError):
             history_from_database(self.db,"BTCUSDT","1h","demo")
 
