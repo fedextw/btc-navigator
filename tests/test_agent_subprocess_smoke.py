@@ -1,5 +1,6 @@
 """Offline subprocess smoke test: real scheduler CLI, no network or orders."""
 import json
+from contextlib import closing
 import os
 from pathlib import Path
 import sqlite3
@@ -16,7 +17,7 @@ SCHEDULER = ROOT / "agent_research_scheduler.py"
 
 def seed(root):
     database = root / "research.sqlite3"
-    with sqlite3.connect(database) as db:
+    with closing(sqlite3.connect(database)) as db:
         db.execute("CREATE TABLE candles (symbol TEXT, interval TEXT, mode TEXT, time TEXT, open REAL, high REAL, low REAL, close REAL, volume REAL)")
         start = datetime(2026, 1, 1, tzinfo=timezone.utc)
         rows = []
