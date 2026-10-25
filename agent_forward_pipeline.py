@@ -22,6 +22,10 @@ def run_once(state_dir, *, now=None):
     try:
         result["registered"]=register_qualified(root,max_reports=10,enrolled_at=stamp)
         result["observed"]=observe_once(root,max_enrollments=3,max_bars_each=5,now=stamp)
+        if result["observed"].get("skipped",0)>0:
+            result["status"]="blocked_observer_errors"
+            result["note"]="部分前向策略觀測失敗，暫停本輪績效摘要；請檢查觀測紀錄與資料庫"
+            return result
         integrity=diagnose(root,max_enrollments=10)
         result["data_integrity"]={"status":integrity["status"],"checked":integrity["checked"],"gaps":integrity["gaps"]}
         if integrity["status"]=="gaps_found":
