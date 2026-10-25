@@ -17,11 +17,24 @@ def run_once(state_dir, symbols=("BTCUSDT",), interval="1h", mode="live", runner
         raise ValueError("研究參數不正確")
     if not 1 <= len(symbols) <= 10 or len(set(symbols)) != len(symbols) or not all(valid_symbol(s) for s in symbols):
         raise ValueError("研究幣種必須為1至10個不同合約")
+    if not 0 <= backfill_limit <= 2:
+        raise ValueError("每輪補資料最多2個合約")
+    backfill_used = 0
     output = []
     for symbol in symbols:
         started = datetime.now(timezone.utc).isoformat()
         try:
-            item = runner(state_dir, symbol, interval, mode)
+            try:
+                item = runner(state_dir, symbol, interval, mode)
+            except (FileNotFoundError, ValueError) as first_error:
+                data_missing = isinstance(first_error, FileNotFoundError) or (
+                    isinstance(first_error, ValueError) and "不足 300 根" in str(first_error))
+                if not data_missing or mode != "live" or backfill_runner is None or backfill_used >= backfill_limit:
+                    raise
+                backfill_used += 1
+                # Strict bounded retry: only once after one public-data request.
+                backfill_runner(state_dir, symbol, interval)
+                item = runner(state_dir, symbol, interval, mode)
             if proposal_runner is not None:
                 item = dict(item)
                 try:
@@ -63,11 +76,16 @@ def main():
     parser.add_argument("--once",action="store_true",help="只執行一輪")
     parser.add_argument("--auto-universe",action="store_true",help="輪流研究資料庫內已累積足夠行情的 USDT 合約（每批最多10種）")
     parser.add_argument("--retry-minutes",type=int,default=30,help="全批資料未就緒時重新檢查的分鐘數")
+    parser.add_argument("--backfill-missing",action="store_true",help="選用公開行情補資料，每輪最多兩種幣，不適用示範模式")
     parser.add_argument("--proposal-research", action="store_true", help="同時執行受控候選研究（預設關閉）")
     parser.add_argument("--hours",type=int,default=24,help="研究間隔（最短6小時）")
     args=parser.parse_args()
     if not 6 <= args.hours <= 168: parser.error("研究間隔必須6至168小時")
     if not 5 <= args.retry_minutes <= 120: parser.error("等待資料重試必須5至120分鐘")
+    backfill_runner = None
+    if args.backfill_missing and args.mode == "live":
+        from agent_history_backfill import backfill_once
+        backfill_runner = backfill_once
     proposal_runner = None
     if args.proposal_research:
         from agent_state_proposals import research_from_state
@@ -95,7 +113,8 @@ def main():
                                   "data_waiting":True}
                     else:
                         result = run_once(args.state_dir,current_symbols,args.interval,args.mode,
-                                          proposal_runner=proposal_runner)
+                                          proposal_runner=proposal_runner,
+                                          backfill_runner=backfill_runner)
                         if args.auto_universe:
                             batch_number += 1
                     result["phase"] = "completed"
