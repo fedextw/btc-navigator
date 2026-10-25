@@ -9,6 +9,7 @@ from pathlib import Path
 from datetime import datetime,timezone
 from agent_forward_replay import replay
 from agent_stage5_review import review_candidate
+from agent_stage5_ranking import rank_candidates
 
 def review_enrolled(state_dir, *, now=None, limit=12):
     if type(limit) is not int or not 1<=limit<=30:
@@ -31,13 +32,18 @@ def review_enrolled(state_dir, *, now=None, limit=12):
             paper=replay(path,root/"agent-forward-observations"/digest)
             decision=review_candidate(root,paper,now=now)
             results.append({"symbol":entry["symbol"],"strategy":entry["strategy"],
-                            "research_sha256":digest,"decision":decision})
+                            "research_sha256":digest,"decision":decision,
+                            "paper_evidence":{k:paper.get(k) for k in
+                                ("prospective_eligible_trades","prospective_paper_net_return_pct",
+                                 "prospective_paper_profit_factor","prospective_paper_max_drawdown_pct")}})
         except (OSError,ValueError,TypeError,KeyError,RuntimeError):
             results.append({"symbol":"—","strategy":"—",
                             "decision":{"status":"hold_for_review","reasons":["資料無效或不足"],
                                         "automatic_promotion_authorized":False,
                                         "live_trading_authorized":False}})
+    ranking=rank_candidates(results)
     return {"schema":"agent-stage5-batch-v1","checked":len(results),
+            "comparison":ranking,
             "candidates":results,"automatic_promotion_authorized":False,
             "live_trading_authorized":False,"paper_only":True}
 
