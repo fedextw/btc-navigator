@@ -47,7 +47,7 @@ class ForwardPaperTests(unittest.TestCase):
         timely=simulate(rows,"trend_8_30")
         self.assertGreater(timely["prospective_eligible_trades"],0)
         self.assertIsNotNone(timely["prospective_paper_net_return_pct"])
-        rows[0]["observed_at_utc"]=(datetime(2026,10,30,tzinfo=timezone.utc)).isoformat()
+        rows[0]["observed_at_utc"]=(datetime(2026,11,30,tzinfo=timezone.utc)).isoformat()
         later=simulate(rows,"trend_8_30")
         self.assertEqual(later["prospective_eligible_trades"],0)
         self.assertIsNone(later["prospective_paper_net_return_pct"])
