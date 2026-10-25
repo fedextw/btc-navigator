@@ -32,7 +32,7 @@ class BackfillTests(unittest.TestCase):
                 t=start+timedelta(hours=i)
                 rows.append([int(t.timestamp()*1000),"100","110","90","105","3",int((t+timedelta(hours=1)).timestamp()*1000)-1])
             client=FakeClient(rows)
-            now=start+timedelta(hours=301)
+            now=start+timedelta(hours=300)
             first=backfill_once(d,"BTCUSDT",client=client,now=now)
             second=backfill_once(d,"BTCUSDT",client=client,now=now)
             self.assertEqual(first["inserted"],300)
