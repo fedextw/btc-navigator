@@ -140,21 +140,26 @@ def main():
         if not args.no_browser:
             webbrowser.open(f"http://127.0.0.1:{args.port}")
         agent_restart_count = 0
-        agent_last_restart = time.monotonic()
+        agent_next_restart = None
         while ui.poll() is None:
             if agent and agent.poll() is not None:
-                if agent_restart_count < 2 and time.monotonic() - agent_last_restart >= 60:
-                    agent_restart_count += 1
-                    agent_last_restart = time.monotonic()
-                    print(f"Agent 研究異常退出；嘗試安全重啟（{agent_restart_count}/2）。", flush=True)
-                    try:
-                        agent = subprocess.Popen(agent_command, cwd=ROOT, env=environment,
-                                                 stdout=agent_log, stderr=subprocess.STDOUT)
-                    except OSError:
-                        agent = None
+                print("Agent 研究程序已停止；主網站與行情掃描不受影響。", flush=True)
+                agent = None
+                if agent_restart_count < 2:
+                    agent_next_restart = time.monotonic() + 60
                 else:
-                    print("Agent 研究已停止，暫停自動重啟；網站與掃描繼續執行。請查閱 agent-research.log。", flush=True)
-                    agent = None
+                    print("Agent 已達最多兩次重啟上限，請查閱 agent-research.log。", flush=True)
+            if agent is None and agent_next_restart is not None and time.monotonic() >= agent_next_restart:
+                agent_next_restart = None
+                agent_restart_count += 1
+                try:
+                    agent = subprocess.Popen(agent_command, cwd=ROOT, env=environment,
+                                             stdout=agent_log, stderr=subprocess.STDOUT)
+                    print(f"Agent 研究已重啟（{agent_restart_count}/2）。", flush=True)
+                except OSError as exc:
+                    print(f"Agent 重啟失敗：{type(exc).__name__}；不影響行情。", flush=True)
+                    if agent_restart_count < 2:
+                        agent_next_restart = time.monotonic() + 60
             if worker.poll() is not None:
                 raise RuntimeError("背景研究程序已停止。請查看 .local-state/scanner.log。")
             time.sleep(1)
