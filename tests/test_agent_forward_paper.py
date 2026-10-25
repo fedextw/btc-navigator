@@ -52,6 +52,22 @@ class ForwardPaperTests(unittest.TestCase):
         self.assertEqual(later["prospective_eligible_trades"],0)
         self.assertIsNone(later["prospective_paper_net_return_pct"])
 
+    def test_prospective_risk_metrics_never_include_late_signals(self):
+        late=simulate(observations(),"trend_8_30")
+        self.assertIsNone(late["prospective_paper_win_rate_pct"])
+        self.assertIsNone(late["prospective_paper_max_drawdown_pct"])
+        self.assertIsNone(late["prospective_paper_expectancy_fraction"])
+        rows=observations()
+        from agent_forward_enrollment import _utc
+        for row in rows:
+            row["observed_at_utc"]=(_utc(row["close_time_utc"])+timedelta(microseconds=1)).isoformat()
+        timely=simulate(rows,"trend_8_30")
+        self.assertGreater(timely["prospective_eligible_trades"],0)
+        self.assertEqual(timely["prospective_eligible_trades"],timely["trades"])
+        self.assertEqual(timely["prospective_paper_win_rate_pct"],timely["win_rate_pct"])
+        self.assertEqual(timely["prospective_paper_max_drawdown_pct"],timely["max_drawdown_pct"])
+        self.assertIsNotNone(timely["prospective_paper_expectancy_fraction"])
+
     def test_missing_or_mixed_bars_rejected(self):
         with self.assertRaises(ValueError):
             simulate(observations(gap=True),"trend_8_30")
