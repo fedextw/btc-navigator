@@ -6,6 +6,8 @@ or sustained profitability. Only explicit external proof can close those gates.
 from agent_forward_health_summary import inspect_forward_health
 from agent_forward_gap_diagnostic import diagnose
 from agent_forward_continuity import summarize_continuity
+from agent_stage4_runtime_window import inspect_window
+from datetime import datetime,timezone
 from pathlib import Path
 import json
 
@@ -13,6 +15,7 @@ def audit(state_dir, *, now=None):
     health=inspect_forward_health(state_dir,now=now)
     gaps=diagnose(state_dir,max_enrollments=10)
     continuity=summarize_continuity(state_dir)
+    runtime=inspect_window(state_dir,now=now or datetime.now(timezone.utc).isoformat())
     # CI regression results must be supplied explicitly and cannot stand in
     # for an on-machine recovery drill or measured uptime.
     ci=Path(state_dir)/"agent-stage4-ci-evidence.json"
@@ -46,6 +49,7 @@ def audit(state_dir, *, now=None):
         "lock_clear":health["lock"]=="unlocked",
         "stored_observation_continuity":gaps["status"]=="no_internal_gaps_detected" and gaps["checked"]>0,
         "journal_continuity":continuity["status"]=="recorded_history_only",
+        "runtime_journal_72h_coverage":runtime.get("journal_coverage_verified") is True,
         "long_duration_runtime_verified":False,
         "exchange_data_freshness_verified":False,
         "recovery_drill_verified":False,
@@ -58,6 +62,7 @@ def audit(state_dir, *, now=None):
             "checks":checks,"failed_checks":[k for k,v in checks.items() if not v],
             "health_status":health["status"],"gap_status":gaps["status"],
             "continuity_status":continuity["status"],
+            "runtime_window_status":runtime["status"],
             "ci_evidence_status":"reported" if ci_verified else "not_supplied",
             "isolated_drill_status":"reported" if drill_verified else "not_supplied",
             "note":"此檢查不會自動宣告階段通過；長時間運作、真實行情和恢復演練須有獨立證據。",
