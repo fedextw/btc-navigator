@@ -7,11 +7,20 @@ import argparse
 import json
 from agent_research_scheduler import run_once
 from agent_stage5_batch import review_enrolled, save_review_snapshot
+from agent_research_universe import next_batch
 
-def run_research_review(state_dir, *, symbols, now=None, save=False,
+def run_research_review(state_dir, *, symbols=None, now=None, save=False,
+                        batch_number=0, universe_runner=next_batch,
                         research_runner=None, review_runner=review_enrolled):
     if research_runner is None:
         research_runner=run_once
+    # Auto-universe reads only contiguous local USDT research data.
+    if symbols is None:
+        symbols=universe_runner(state_dir,"1h","live",batch_number=batch_number)
+    if not symbols:
+        return {"schema":"agent-stage5-cycle-v1","status":"waiting_for_research_ready_symbols",
+                "automatic_promotion_authorized":False,"live_trading_authorized":False,
+                "paper_only":True}
     research=research_runner(state_dir,symbols=tuple(symbols),interval="1h",mode="live")
     if (not isinstance(research,dict) or research.get("schema")!="agent-scheduler-v1"
             or research.get("live_trading_authorized") is not False
@@ -34,10 +43,11 @@ def run_research_review(state_dir, *, symbols, now=None, save=False,
 def main():
     parser=argparse.ArgumentParser(description="第五階段受控研究循環，不進行真實下單")
     parser.add_argument("--state-dir",required=True)
-    parser.add_argument("--symbols",nargs="+",required=True)
+    parser.add_argument("--symbols",nargs="+",help="指定標的；省略則輪替研究本機已就緒 USDT 合約")
+    parser.add_argument("--batch-number",type=int,default=0)
     parser.add_argument("--save-review",action="store_true")
     args=parser.parse_args()
-    print(json.dumps(run_research_review(args.state_dir,symbols=args.symbols,
+    print(json.dumps(run_research_review(args.state_dir,symbols=args.symbols,batch_number=args.batch_number,
                                           save=args.save_review),ensure_ascii=False,indent=2))
 
 if __name__=="__main__":
