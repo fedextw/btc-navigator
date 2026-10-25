@@ -32,6 +32,8 @@ jobs:
         run: python -m unittest discover -s tests -p "test_website_smoke.py" -v
       - name: Full demo launcher smoke test (web, scanner, Agent)
         run: python -m unittest discover -s tests -p "test_full_stack_demo_smoke.py" -v
+      - name: Test extracted release ZIP and offline launcher
+        run: python -m unittest discover -s tests -p "test_agent_extracted_release.py" -v
       - name: Run B+C release preflight
         run: python agent_release_preflight.py
       - name: Build isolated B+C Windows ZIP
