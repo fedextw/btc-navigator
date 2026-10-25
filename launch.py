@@ -139,11 +139,22 @@ def main():
         print("這是研究與紙上模擬系統，沒有自動下單功能。", flush=True)
         if not args.no_browser:
             webbrowser.open(f"http://127.0.0.1:{args.port}")
-        agent_exit_reported = False
+        agent_restart_count = 0
+        agent_last_restart = time.monotonic()
         while ui.poll() is None:
-            if agent and agent.poll() is not None and not agent_exit_reported:
-                print("Agent 研究程序已停止；網站與行情掃描繼續運作，請查閱 agent-research.log。", flush=True)
-                agent_exit_reported = True
+            if agent and agent.poll() is not None:
+                if agent_restart_count < 2 and time.monotonic() - agent_last_restart >= 60:
+                    agent_restart_count += 1
+                    agent_last_restart = time.monotonic()
+                    print(f"Agent 研究異常退出；嘗試安全重啟（{agent_restart_count}/2）。", flush=True)
+                    try:
+                        agent = subprocess.Popen(agent_command, cwd=ROOT, env=environment,
+                                                 stdout=agent_log, stderr=subprocess.STDOUT)
+                    except OSError:
+                        agent = None
+                else:
+                    print("Agent 研究已停止，暫停自動重啟；網站與掃描繼續執行。請查閱 agent-research.log。", flush=True)
+                    agent = None
             if worker.poll() is not None:
                 raise RuntimeError("背景研究程序已停止。請查看 .local-state/scanner.log。")
             time.sleep(1)
