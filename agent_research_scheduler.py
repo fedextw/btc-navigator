@@ -64,30 +64,36 @@ def main():
     if args.proposal_research:
         from agent_state_proposals import research_from_state
         proposal_runner = research_from_state
-    while True:
-        started_at = datetime.now(timezone.utc).isoformat()
-        write_status(args.state_dir, {
-            "schema": "agent-scheduler-v1", "paper_only": True,
-            "live_trading_authorized": False, "phase": "running",
-            "started_at": started_at, "items": []})
-        try:
-            result = run_once(args.state_dir,tuple(args.symbols),args.interval,args.mode,
-                              proposal_runner=proposal_runner)
-            result["phase"] = "completed"
-            result["started_at"] = started_at
-        except Exception as exc:
-            # Process-level failure must be visible, not silently misreported.
-            result = {"schema": "agent-scheduler-v1", "paper_only": True,
-                      "live_trading_authorized": False, "phase": "error",
-                      "started_at": started_at,
-                      "finished_at": datetime.now(timezone.utc).isoformat(),
-                      "error_type": type(exc).__name__, "items": []}
-        target=write_status(args.state_dir,result)
-        print(json.dumps({"status_file":str(target),"phase":result["phase"],
-                          "items":result["items"]},ensure_ascii=False),flush=True)
-        if args.once:break
-        time.sleep(args.hours*3600)
+    from agent_single_instance import research_lock, AlreadyRunning
+    try:
+        with research_lock(args.state_dir):
+        while True:
+            started_at = datetime.now(timezone.utc).isoformat()
+            write_status(args.state_dir, {
+                "schema": "agent-scheduler-v1", "paper_only": True,
+                "live_trading_authorized": False, "phase": "running",
+                "started_at": started_at, "items": []})
+            try:
+                result = run_once(args.state_dir,tuple(args.symbols),args.interval,args.mode,
+                                  proposal_runner=proposal_runner)
+                result["phase"] = "completed"
+                result["started_at"] = started_at
+            except Exception as exc:
+                # Process-level failure must be visible, not silently misreported.
+                result = {"schema": "agent-scheduler-v1", "paper_only": True,
+                          "live_trading_authorized": False, "phase": "error",
+                          "started_at": started_at,
+                          "finished_at": datetime.now(timezone.utc).isoformat(),
+                          "error_type": type(exc).__name__, "items": []}
+            target=write_status(args.state_dir,result)
+            print(json.dumps({"status_file":str(target),"phase":result["phase"],
+                              "items":result["items"]},ensure_ascii=False),flush=True)
+            if args.once:break
+            time.sleep(args.hours*3600)
+    except AlreadyRunning as exc:
+        print(str(exc), flush=True)
+        return 2
 
 
 if __name__=="__main__":
-    main()
+    raise SystemExit(main())
