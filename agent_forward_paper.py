@@ -66,6 +66,11 @@ def simulate(observations, strategy, interval_seconds=3600, round_trip_cost=0.00
             i+=3
         else:
             i+=1
+    returns=[t["net_return_fraction"] for t in trades]
+    wins=sum(v>0 for v in returns)
+    gross_profit=sum(max(v,0) for v in returns)
+    gross_loss=-sum(min(v,0) for v in returns)
+    factor=(gross_profit/gross_loss if gross_loss>0 else None)
     equity=peak=1.0
     max_dd=0.0
     for trade in trades:
@@ -77,6 +82,10 @@ def simulate(observations, strategy, interval_seconds=3600, round_trip_cost=0.00
             "observed_bars":len(bars),"trades":len(trades),"trades_detail":trades,
             "net_return_pct":round(100*(equity-1),6),
             "max_drawdown_pct":round(max_dd,6),
+            "win_rate_pct":round(100*wins/len(trades),4) if trades else None,
+            "profit_factor":round(factor,6) if factor is not None else None,
+            "net_expectancy_fraction":round(sum(returns)/len(returns),8) if trades else None,
+            "evidence_status":"needs_more_forward_samples" if len(trades)<30 else "requires_independent_review",
             "cost_fraction_round_trip":round_trip_cost,
             "cost_model":"fixed_round_trip_excludes_funding",
             "not_actual_fills":True,"live_trading_authorized":False}
