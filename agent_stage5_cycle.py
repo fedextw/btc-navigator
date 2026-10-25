@@ -27,6 +27,19 @@ def run_research_review(state_dir, *, symbols=None, now=None, save=False,
             or research.get("live_trading_authorized") is not False
             or research.get("paper_only") is not True):
         raise ValueError("研究批次不符合安全條件")
+    counts=research.get("counts")
+    items=research.get("items")
+    completed=(isinstance(counts,dict) and type(counts.get("attempted")) is int
+               and counts["attempted"]>0 and type(counts.get("completed")) is int
+               and counts["completed"]==counts["attempted"]
+               and isinstance(items,list) and len(items)==counts["attempted"]
+               and all(isinstance(item,dict) and item.get("status")=="completed"
+                       for item in items))
+    if not completed:
+        return {"schema":"agent-stage5-cycle-v1","status":"research_incomplete_retry_required",
+                "research":research,"review_status":"not_run_for_incomplete_batch",
+                "automatic_promotion_authorized":False,
+                "live_trading_authorized":False,"paper_only":True}
     decisions=review_runner(state_dir,now=now)
     if (not isinstance(decisions,dict) or decisions.get("schema")!="agent-stage5-batch-v1"
             or decisions.get("automatic_promotion_authorized") is not False
