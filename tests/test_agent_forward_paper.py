@@ -25,6 +25,9 @@ class ForwardPaperTests(unittest.TestCase):
         self.assertGreater(a["trades"],0)
         self.assertGreater(a["net_return_pct"],b["net_return_pct"])
         self.assertTrue(a["not_actual_fills"])
+        self.assertEqual(a["verified_executable_trades"],0)
+        self.assertFalse(a["execution_verified"])
+        self.assertTrue(all(t["entry_price_verified"] is False for t in a["trades_detail"]))
         self.assertFalse(a["live_trading_authorized"])
         for trade in a["trades_detail"]:
             self.assertLess(trade["signal_utc"],trade["entry_utc"])
@@ -64,6 +67,8 @@ class ForwardPaperTests(unittest.TestCase):
         timely=simulate(rows,"trend_8_30")
         self.assertGreater(timely["prospective_eligible_trades"],0)
         self.assertEqual(timely["prospective_eligible_trades"],timely["trades"])
+        self.assertEqual(timely["verified_executable_trades"],0)
+        self.assertFalse(timely["execution_verified"])
         self.assertEqual(timely["prospective_paper_win_rate_pct"],timely["win_rate_pct"])
         self.assertEqual(timely["prospective_paper_max_drawdown_pct"],timely["max_drawdown_pct"])
         self.assertIsNotNone(timely["prospective_paper_expectancy_fraction"])
