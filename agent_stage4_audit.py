@@ -27,6 +27,20 @@ def audit(state_dir, *, now=None):
                          payload["run_url"].startswith("https://github.com/"))
     except (OSError,ValueError,TypeError):
         pass
+    drill_verified=False
+    drill_file=Path(state_dir)/"agent-stage4-recovery-drill.json"
+    try:
+        if drill_file.is_file() and drill_file.stat().st_size<=4096:
+            drill=json.loads(drill_file.read_text(encoding="utf-8"))
+            expected=("preexisting_lock_preserved","exception_lock_cleanup","safe_retry","no_live_authorization")
+            drill_verified=(drill.get("schema")=="agent-stage4-recovery-drill-v1" and
+                            drill.get("status")=="passed" and
+                            drill.get("isolated_temporary_workspace") is True and
+                            drill.get("live_trading_authorized") is False and
+                            isinstance(drill.get("recorded_at_utc"),str) and
+                            all((drill.get("checks") or {}).get(k) is True for k in expected))
+    except (OSError,ValueError,TypeError):
+        pass
     checks={
         "periodic_health":health["status"]=="recently_completed",
         "lock_clear":health["lock"]=="unlocked",
@@ -36,6 +50,7 @@ def audit(state_dir, *, now=None):
         "exchange_data_freshness_verified":False,
         "recovery_drill_verified":False,
         "recovery_ci_regression_reported":ci_verified,
+        "isolated_local_recovery_drill_reported":drill_verified,
         "actual_fill_and_funding_costs_verified":False,
     }
     return {"schema":"agent-stage4-audit-v1",
@@ -44,5 +59,6 @@ def audit(state_dir, *, now=None):
             "health_status":health["status"],"gap_status":gaps["status"],
             "continuity_status":continuity["status"],
             "ci_evidence_status":"reported" if ci_verified else "not_supplied",
+            "isolated_drill_status":"reported" if drill_verified else "not_supplied",
             "note":"此檢查不會自動宣告階段通過；長時間運作、真實行情和恢復演練須有獨立證據。",
             "paper_only":True,"live_trading_authorized":False}
