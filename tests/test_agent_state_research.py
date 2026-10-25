@@ -1,6 +1,7 @@
 import sqlite3
 import tempfile
 import unittest
+from contextlib import closing
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from agent_state_research import history_from_database, run_from_state
@@ -11,7 +12,7 @@ class StateResearchTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
         self.db = self.root / "research.sqlite3"
-        with sqlite3.connect(self.db) as db:
+        with closing(sqlite3.connect(self.db)) as db:
             db.execute("CREATE TABLE candles(symbol TEXT,interval TEXT,mode TEXT,time TEXT,close_time TEXT,open REAL,high REAL,low REAL,close REAL,volume REAL)")
             initial = datetime(2026, 1, 1, tzinfo=timezone.utc)
             for i in range(360):
