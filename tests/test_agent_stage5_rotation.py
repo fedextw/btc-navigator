@@ -13,6 +13,19 @@ class Stage5RotationTests(unittest.TestCase):
         self.assertEqual(seen,[4,5,6])
         self.assertEqual(result["completed_cycles"],3)
         self.assertFalse(result["live_trading_authorized"])
+    def test_partial_batch_stops_even_without_resume(self):
+        seen=[]
+        def run(state,*,batch_number):
+            seen.append(batch_number)
+            return {"schema":"agent-stage5-cycle-v1",
+                    "research":{"counts":{"attempted":2,"completed":1},
+                                "items":[{"status":"completed"},{"status":"skipped"}]},
+                    "automatic_promotion_authorized":False,
+                    "live_trading_authorized":False}
+        result=run_rotation("/unused",rounds=3,cycle_runner=run)
+        self.assertEqual(seen,[0])
+        self.assertEqual(result["completed_cycles"],0)
+
     def test_no_ready_symbols_stops_loop(self):
         seen=[]
         def run(state,*,batch_number):
