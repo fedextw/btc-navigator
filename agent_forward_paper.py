@@ -24,6 +24,7 @@ def simulate(observations, strategy, interval_seconds=3600, round_trip_cost=0.00
     if not fingerprint or not symbol:
         raise ValueError("觀測紀錄缺少研究識別")
     bars=[]
+    observed_times=[]
     previous=None
     for item in observations:
         if (item.get("schema")!="agent-forward-observation-v1" or
@@ -45,6 +46,7 @@ def simulate(observations, strategy, interval_seconds=3600, round_trip_cost=0.00
         if not all(math.isfinite(x) for x in (o,h,l,c,v)) or min(o,h,l,c)<=0 or v<0 or h<max(o,c,l) or l>min(o,c,h):
             raise ValueError("行情數值不合法")
         bars.append((t,o,h,l,c,v))
+        observed_times.append(seen_at)
     # No historical research candles are mixed into paper observations. Require
     # enough new post-enrollment candles to establish indicators independently.
     from agent_research_cycle import make_signals
@@ -57,7 +59,10 @@ def simulate(observations, strategy, interval_seconds=3600, round_trip_cost=0.00
             entry=bars[i+1][1]
             exit_price=bars[i+3][4]
             r=side*(exit_price/entry-1)-round_trip_cost
+            # Late observations cannot qualify as prospective entry signals.
+            timely=observed_times[i]<=bars[i+1][0]
             trades.append({"signal_utc":bars[i][0].isoformat(),
+                           "prospective_signal_observed_before_entry":timely,
                            "entry_utc":bars[i+1][0].isoformat(),
                            "exit_utc":bars[i+3][0].isoformat(),
                            "side":"LONG" if side>0 else "SHORT",
@@ -66,6 +71,7 @@ def simulate(observations, strategy, interval_seconds=3600, round_trip_cost=0.00
             i+=3
         else:
             i+=1
+    prospective=sum(t["prospective_signal_observed_before_entry"] for t in trades)
     returns=[t["net_return_fraction"] for t in trades]
     wins=sum(v>0 for v in returns)
     gross_profit=sum(max(v,0) for v in returns)
@@ -80,12 +86,16 @@ def simulate(observations, strategy, interval_seconds=3600, round_trip_cost=0.00
     return {"schema":"agent-forward-paper-v1","status":"paper_estimate_only",
             "symbol":symbol,"strategy":strategy,"research_sha256":fingerprint,
             "observed_bars":len(bars),"trades":len(trades),"trades_detail":trades,
+            "prospective_eligible_trades":prospective,
+            "retrospective_only_trades":len(trades)-prospective,
             "net_return_pct":round(100*(equity-1),6),
             "max_drawdown_pct":round(max_dd,6),
             "win_rate_pct":round(100*wins/len(trades),4) if trades else None,
             "profit_factor":round(factor,6) if factor is not None else None,
             "net_expectancy_fraction":round(sum(returns)/len(returns),8) if trades else None,
-            "evidence_status":"needs_more_forward_samples" if len(trades)<30 else "requires_independent_review",
+            "evidence_status":("retrospective_only_not_forward_verified" if prospective==0 else
+                               "needs_more_forward_samples" if prospective<30 else
+                               "requires_independent_review"),
             "cost_fraction_round_trip":round_trip_cost,
             "cost_model":"fixed_round_trip_excludes_funding",
             "not_actual_fills":True,"live_trading_authorized":False}
