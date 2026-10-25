@@ -21,12 +21,12 @@ def research_lock(state_dir):
         if os.name == "nt":
             import msvcrt
             # Ensure a byte exists before Windows byte-range locking.
-            if not handle.read(1):
-                handle.seek(0)
-                handle.write(b"0")
-                handle.flush()
-            handle.seek(0)
             try:
+                if not handle.read(1):
+                    handle.seek(0)
+                    handle.write(b"0")
+                    handle.flush()
+                handle.seek(0)
                 msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
             except OSError as exc:
                 raise AlreadyRunning("已有另一個 Agent 研究排程器使用此資料目錄") from exc
