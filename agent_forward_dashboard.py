@@ -31,11 +31,13 @@ def summarize_forward(state_dir, max_enrollments=12):
             result=replay(path,root/"agent-forward-observations"/fingerprint)
             rows.append({"合約":str(entry["symbol"])[:32],"策略":str(entry["strategy"])[:40],
                          "前向交易筆數":result.get("trades",0),
+                         "可核對即時訊號筆數":result.get("prospective_eligible_trades",0),
                          "模擬淨報酬％":result.get("net_return_pct"),
                          "勝率％":result.get("win_rate_pct"),
                          "獲利因子":result.get("profit_factor"),
                          "最大回撤％":result.get("max_drawdown_pct"),
                          "驗證狀態":("等待新行情" if result.get("status")=="waiting_future_candles" else
+                                   "事後讀取，非即時驗證" if result.get("evidence_status")=="retrospective_only_not_forward_verified" else
                                    "樣本不足" if result.get("evidence_status")=="needs_more_forward_samples" else
                                    "僅供進一步審核")})
         except (OSError,ValueError,TypeError,KeyError,RuntimeError,json.JSONDecodeError):
