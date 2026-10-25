@@ -23,6 +23,7 @@ def run_once(state_dir, symbols=("BTCUSDT",), interval="1h", mode="live", runner
     output = []
     for symbol in symbols:
         started = datetime.now(timezone.utc).isoformat()
+        backfill_info = {"status":"not_requested"}
         try:
             try:
                 item = runner(state_dir, symbol, interval, mode)
@@ -33,7 +34,11 @@ def run_once(state_dir, symbols=("BTCUSDT",), interval="1h", mode="live", runner
                     raise
                 backfill_used += 1
                 # Strict bounded retry: only once after one public-data request.
-                backfill_runner(state_dir, symbol, interval)
+                backfill_info = {"status":"attempted"}
+                result = backfill_runner(state_dir, symbol, interval)
+                if isinstance(result, dict):
+                    backfill_info = {"status":str(result.get("status","attempted"))[:32],
+                                     "inserted":max(0,int(result.get("inserted",0)))}
                 item = runner(state_dir, symbol, interval, mode)
             if proposal_runner is not None:
                 item = dict(item)
@@ -41,10 +46,14 @@ def run_once(state_dir, symbols=("BTCUSDT",), interval="1h", mode="live", runner
                     item["proposal_research"] = proposal_runner(state_dir, symbol, interval, mode)
                 except (ValueError, OSError, RuntimeError) as exc:
                     item["proposal_research"] = {"status": "skipped", "error_type": type(exc).__name__, "live_trading_authorized": False}
-            output.append({"symbol":symbol,"at":started,"status":"completed","result":item})
+            output.append({"symbol":symbol,"at":started,"status":"completed",
+                           "backfill":backfill_info,"result":item})
         except (ValueError, OSError, RuntimeError) as exc:
             waiting = isinstance(exc, FileNotFoundError) or (isinstance(exc, ValueError) and "不足 300 根" in str(exc))
+            if backfill_info["status"] == "attempted":
+                backfill_info = {"status":"failed","error_type":type(exc).__name__}
             output.append({"symbol":symbol,"at":started,"status":"skipped",
+                           "backfill":backfill_info,
                            "error_type":"DataNotReady" if waiting else type(exc).__name__})
     return {"schema":"agent-scheduler-v1","paper_only":True,"live_trading_authorized":False,"items":output,
             "finished_at": datetime.now(timezone.utc).isoformat()}
