@@ -34,3 +34,14 @@ jobs:
         run: python -m unittest discover -s tests -p "test_full_stack_demo_smoke.py" -v
       - name: Run B+C release preflight
         run: python agent_release_preflight.py
+      - name: Build isolated B+C Windows ZIP
+        if: runner.os == 'Windows'
+        run: python agent_build_release.py
+      - name: Upload tested B+C Windows research ZIP
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: BTC_NAVIGATOR_BC_RESEARCH_TEST
+          path: dist/BTC_NAVIGATOR_BC_RESEARCH_TEST.zip
+          if-no-files-found: error
+          retention-days: 14
