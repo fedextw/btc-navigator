@@ -19,6 +19,22 @@ class Stage5CycleTests(unittest.TestCase):
             self.assertFalse(result["live_trading_authorized"])
             from pathlib import Path
             self.assertTrue(Path(result["review_snapshot"]).is_file())
+    def test_auto_universe_research_and_empty_universe_wait(self):
+        with tempfile.TemporaryDirectory() as td:
+            calls=[]
+            def universe(state,interval,mode,*,batch_number):
+                calls.append((interval,mode,batch_number))
+                return ("BTCUSDT","ETHUSDT")
+            result=run_research_review(td,batch_number=2,universe_runner=universe,
+                                       research_runner=self.research)
+            self.assertEqual(calls,[("1h","live",2)])
+            self.assertEqual(result["research"]["counts"]["attempted"],2)
+            self.assertFalse(result["live_trading_authorized"])
+            empty=run_research_review(td,universe_runner=lambda *a,**kw:(),
+                                      research_runner=self.research)
+            self.assertEqual(empty["status"],"waiting_for_research_ready_symbols")
+            self.assertFalse(empty["automatic_promotion_authorized"])
+
     def test_unsafe_research_or_review_fails_closed(self):
         with tempfile.TemporaryDirectory() as td:
             def unsafe(*args,**kwargs):
