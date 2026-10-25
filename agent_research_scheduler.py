@@ -50,6 +50,9 @@ def write_status(state_dir, report):
 
 
 def main():
+    import sys
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(errors="backslashreplace")
     parser=argparse.ArgumentParser(description="BTC Navigator 獨立離線研究排程（僅紙上）")
     parser.add_argument("--state-dir",default=".local-state")
     parser.add_argument("--symbols",nargs="+",default=["BTCUSDT"])
