@@ -40,9 +40,12 @@ def main():
     parser.add_argument("--check", action="store_true", help="安裝並檢查相依套件後結束")
     parser.add_argument("--agent-research", action="store_true", help="額外啟用獨立紙上策略研究排程（試驗功能，預設關閉）")
     parser.add_argument("--ready", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--demo-test-stop", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
     if sys.version_info < (3, 11):
         raise SystemExit("請先安裝 Python 3.11 以上版本，再重新啟動。")
+    if args.demo_test_stop and not args.demo:
+        parser.error("測試停止標記只能搭配 --demo")
     if not 1024 <= args.port <= 65535:
         parser.error("port 必須介於 1024 與 65535")
     os.chdir(ROOT)
@@ -142,6 +145,11 @@ def main():
         agent_restart_count = 0
         agent_next_restart = None
         while ui.poll() is None:
+            # Test-only cooperative exit on Windows, where Popen.terminate does
+            # not notify this parent process and can orphan its descendants.
+            if args.demo_test_stop and (state / ".demo-test-stop").exists():
+                print("收到示範整合測試停止指令，正在正常關閉子程序。", flush=True)
+                break
             if agent and agent.poll() is not None:
                 print("Agent 研究程序已停止；主網站與行情掃描不受影響。", flush=True)
                 agent = None
