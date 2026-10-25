@@ -68,7 +68,9 @@ def simulate(observations, strategy, interval_seconds=3600, round_trip_cost=0.00
                            "exit_utc":bars[i+3][0].isoformat(),
                            "side":"LONG" if side>0 else "SHORT",
                            "net_return_fraction":round(r,10),
-                           "fill_type":"hypothetical_next_open"})
+                           "fill_type":"hypothetical_next_open",
+                           "entry_price_verified":False,
+                           "execution_evidence":"no_order_book_or_exchange_fill"})
             i+=3
         else:
             i+=1
@@ -100,6 +102,9 @@ def simulate(observations, strategy, interval_seconds=3600, round_trip_cost=0.00
             "symbol":symbol,"strategy":strategy,"research_sha256":fingerprint,
             "observed_bars":len(bars),"trades":len(trades),"trades_detail":trades,
             "prospective_eligible_trades":prospective,
+            "verified_executable_trades":0,
+            "execution_verified":False,
+            "fill_model_warning":"Next-open OHLC is not an executable quote; no order-book, latency, depth or actual fill evidence.",
             "retrospective_only_trades":len(trades)-prospective,
             "prospective_paper_net_return_pct":round(100*(prospective_equity-1),6) if prospective else None,
             "prospective_paper_win_rate_pct":round(100*prospective_wins/prospective,4) if prospective else None,
