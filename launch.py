@@ -118,7 +118,7 @@ def main():
         if args.agent_research:
             # Separate process; its exit never stops the scanner or website.
             # Bound to the chosen symbol, once per 24h; no trading permissions.
-            from market_data import valid_symbol
+            from agent_symbol_validation import valid_symbol
             if not valid_symbol(args.symbol):
                 raise ValueError("Agent 研究幣種格式不正確")
             agent_log = (state / "agent-research.log").open("a", encoding="utf-8")
