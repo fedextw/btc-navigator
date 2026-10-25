@@ -9,6 +9,7 @@ from pathlib import Path
 from agent_forward_register import register_qualified
 from agent_forward_observer import observe_once
 from agent_forward_dashboard import summarize_forward
+from agent_forward_gap_diagnostic import diagnose
 
 def run_once(state_dir, *, now=None):
     root=Path(state_dir)
@@ -17,10 +18,16 @@ def run_once(state_dir, *, now=None):
     stamp=now or datetime.now(timezone.utc).isoformat()
     result={"schema":"agent-forward-pipeline-v1","paper_only":True,
             "live_trading_authorized":False,"status":"completed",
-            "registered":None,"observed":None,"dashboard":None}
+            "registered":None,"observed":None,"dashboard":None,"data_integrity":None}
     try:
         result["registered"]=register_qualified(root,max_reports=10,enrolled_at=stamp)
         result["observed"]=observe_once(root,max_enrollments=3,max_bars_each=5,now=stamp)
+        integrity=diagnose(root,max_enrollments=10)
+        result["data_integrity"]={"status":integrity["status"],"checked":integrity["checked"],"gaps":integrity["gaps"]}
+        if integrity["status"]=="gaps_found":
+            result["status"]="blocked_data_gap"
+            result["note"]="前向觀測有缺口或資料異常，暫停績效摘要"
+            return result
         view=summarize_forward(root,max_enrollments=12)
         result["dashboard"]={"status":view["status"],"checked":view["checked"],
                             "rows":view["rows"]}
