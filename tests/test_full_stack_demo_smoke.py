@@ -31,7 +31,8 @@ class FullStackSmokeTest(unittest.TestCase):
             env["BTC_NAVIGATOR_STATE_DIR"]=td
             env["PYTHONIOENCODING"]="utf-8"
             command=[sys.executable,"launch.py","--ready","--demo",
-                     "--no-browser","--port",str(port),"--agent-research"]
+                     "--no-browser","--port",str(port),"--agent-research",
+                     "--demo-test-stop"]
             process=subprocess.Popen(command,cwd=ROOT,env=env,stdout=subprocess.PIPE,
                                      stderr=subprocess.STDOUT)
             try:
@@ -57,12 +58,14 @@ class FullStackSmokeTest(unittest.TestCase):
                 else:
                     self.fail("無法同時觀察到網站、掃描程序與 Agent 狀態")
             finally:
-                process.terminate()
+                # Normal cooperative exit: parent stops and reaps all children.
+                (state / ".demo-test-stop").touch()
                 try:
-                    process.communicate(timeout=14)
+                    process.wait(timeout=22)
                 except subprocess.TimeoutExpired:
                     process.kill()
-                    process.communicate(timeout=10)
+                    process.wait(timeout=10)
+                self.assertEqual(process.returncode, 0, "啟動器無法正常結束")
 
 
 if __name__=="__main__":
