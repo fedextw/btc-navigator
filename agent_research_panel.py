@@ -49,6 +49,17 @@ def render(state_root):
     import streamlit as st
     st.title("AI Agent 研究中心")
     st.caption("僅顯示獨立研究排程的結果。不提供新下單訊號、不修改模型，也不自動啟動排程。")
+    # Read-only local diagnostic: show service state without exposing secrets.
+    from agent_bc_diagnostic import inspect
+    health = inspect(state_root, 8591)
+    st.subheader("B＋C 本機健康檢查")
+    cols = st.columns(3)
+    cols[0].metric("網站連接埠", "有回應" if health["website_port_responds"] else "無回應")
+    cols[1].metric("掃描紀錄", "已建立" if health["scanner_log_exists"] else "尚未建立")
+    cols[2].metric("Agent 狀態", {"running":"研究中","completed":"已完成",
+                   "error":"發生錯誤","missing":"尚無紀錄"}.get(health["agent_status"],"需檢查"))
+    st.caption(health["recommendation"])
+    st.caption("健康燈號只能確認基本啟動，不代表行情持續更新、研究品質或可實盤下單。")
     record = load_status(state_root)
     st.info(record["message"])
     if record.get("started_at"):
