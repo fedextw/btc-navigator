@@ -10,7 +10,7 @@ from pathlib import Path
 from agent_state_research import run_from_state
 
 
-def run_once(state_dir, symbols=("BTCUSDT",), interval="1h", mode="live", runner=run_from_state, proposal_runner=None):
+def run_once(state_dir, symbols=("BTCUSDT",), interval="1h", mode="live", runner=run_from_state, proposal_runner=None, backfill_runner=None, backfill_limit=2):
     """Bounded batch, log each attempt, never interrupt other symbols after one failure."""
     from agent_symbol_validation import valid_symbol
     if interval not in ("15m", "1h", "4h") or mode not in ("demo", "live"):
