@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from agent_csv_research import read_candles, evaluate, COST
+from agent_profitability_gate import assess
 
 # Small, predeclared search budget. No learned strategy code execution.
 CANDIDATES = (
@@ -50,6 +51,7 @@ def run_cycle(csv_path, *, cost=COST):
     chosen = None
     heldout = None
     reason = "驗證段沒有至少5筆的候選" if not valid else None
+    evidence = assess(None)
     if valid:
         selected = max(valid, key=lambda c: (
             c["validation"]["net_expectancy_r"],
@@ -58,14 +60,9 @@ def run_cycle(csv_path, *, cost=COST):
         candidate = next(c for c in CANDIDATES if c[0] == chosen)
         result = evaluate(bars, make_signals(bars, candidate), test_start, n, cost)
         heldout = {k:v for k,v in result.items() if k != "trades_detail"}
-        if result["trades"] < 20:
-            reason = "保留測試成交少於20筆"
-        elif result["net_expectancy_r"] <= 0 or result["profit_factor"] < 1.1:
-            reason = "保留測試淨期望或獲利因子不足"
-        elif result["max_drawdown_pct"] >= 15:
-            reason = "保留測試回撤過高"
-        else:
-            reason = "初步保留測試通過；仍需獨立資料來源與前向模擬複驗"
+        evidence = assess(result)
+        reason = ("初步保留測試通過；仍需獨立前向模擬複驗" if evidence["eligible"]
+                  else "；".join(evidence["reasons"]))
     return {
         "schema": "agent-cycle-v1", "dataset_sha256": fingerprint,
         "config": {"bars": n, "cost_fraction": cost, "horizon_bars": 3,
@@ -73,6 +70,7 @@ def run_cycle(csv_path, *, cost=COST):
                    "validation_end": bars[test_start-1][0].isoformat(),
                    "heldout_end": bars[-1][0].isoformat()},
         "candidates": comparisons, "selected": chosen, "heldout": heldout,
+        "profitability_evidence": evidence,
         "paper_status": "research_candidate" if chosen and reason.startswith("初步") else "rejected",
         "reason": reason,
         "live_trading_authorized": False,
