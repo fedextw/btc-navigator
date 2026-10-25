@@ -33,7 +33,7 @@ def summarize_forward(state_dir, max_enrollments=12):
                          "前向交易筆數":result.get("trades",0),
                          "可核對即時訊號筆數":result.get("prospective_eligible_trades",0),
                          "及時觀測假設淨報酬％":result.get("prospective_paper_net_return_pct"),
-                         "全樣本事後模擬淨報酬％":result.get("net_return_pct"),
+                         "模擬淨報酬％":result.get("net_return_pct"),
                          "勝率％":result.get("win_rate_pct"),
                          "獲利因子":result.get("profit_factor"),
                          "最大回撤％":result.get("max_drawdown_pct"),
