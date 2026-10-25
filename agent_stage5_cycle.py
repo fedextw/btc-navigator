@@ -90,11 +90,17 @@ def run_rotation(state_dir, *, rounds=3, start_batch=0, cycle_runner=run_researc
                 json.dump(checkpoint,out,ensure_ascii=False)
                 temporary=out.name
             os.replace(temporary,progress)
-        if item.get("status")=="waiting_for_research_ready_symbols" or (resume and not fully_completed):
+        if item.get("status")=="waiting_for_research_ready_symbols" or not fully_completed:
             break
     return {"schema":"agent-stage5-rotation-v1","cycles":results,
             "checkpoint_blocked":bool(resume and results and not fully_completed),
-            "completed_cycles":sum("research" in item for item in results),
+            "completed_cycles":sum(isinstance(item.get("research"),dict) and
+                                    isinstance(item["research"].get("counts"),dict) and
+                                    item["research"]["counts"].get("attempted",0)>0 and
+                                    item["research"]["counts"].get("attempted")==item["research"]["counts"].get("completed") and
+                                    len(item["research"].get("items",[]))==item["research"]["counts"].get("attempted") and
+                                    all(x.get("status")=="completed" for x in item["research"]["items"])
+                                    for item in results),
             "automatic_promotion_authorized":False,"live_trading_authorized":False,
             "paper_only":True}
 
