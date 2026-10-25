@@ -8,7 +8,7 @@ class Stage5CycleTests(unittest.TestCase):
         self.assertEqual(interval,"1h")
         self.assertEqual(mode,"live")
         return {"schema":"agent-scheduler-v1","paper_only":True,
-                "live_trading_authorized":False,"items":[],"counts":{"attempted":len(symbols)}}
+                "live_trading_authorized":False,"items":[{"status":"completed"} for _ in symbols],"counts":{"attempted":len(symbols),"completed":len(symbols)}}
     def test_integrated_research_and_real_empty_review(self):
         with tempfile.TemporaryDirectory() as td:
             result=run_research_review(td,symbols=["BTCUSDT"],research_runner=self.research,
@@ -34,6 +34,24 @@ class Stage5CycleTests(unittest.TestCase):
                                       research_runner=self.research)
             self.assertEqual(empty["status"],"waiting_for_research_ready_symbols")
             self.assertFalse(empty["automatic_promotion_authorized"])
+
+    def test_incomplete_research_never_reviews_old_data(self):
+        with tempfile.TemporaryDirectory() as td:
+            called=[]
+            def incomplete(state,*,symbols,interval,mode):
+                return {"schema":"agent-scheduler-v1","paper_only":True,
+                        "live_trading_authorized":False,
+                        "items":[{"status":"skipped"}],
+                        "counts":{"attempted":1,"completed":0}}
+            def review(*args,**kwargs):
+                called.append(True)
+                return {}
+            result=run_research_review(td,symbols=["BTCUSDT"],
+                                       research_runner=incomplete,review_runner=review)
+            self.assertEqual(result["status"],"research_incomplete_retry_required")
+            self.assertEqual(result["review_status"],"not_run_for_incomplete_batch")
+            self.assertEqual(called,[])
+            self.assertFalse(result["automatic_promotion_authorized"])
 
     def test_unsafe_research_or_review_fails_closed(self):
         with tempfile.TemporaryDirectory() as td:
