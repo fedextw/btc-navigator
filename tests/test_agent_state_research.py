@@ -37,7 +37,7 @@ class StateResearchTests(unittest.TestCase):
             history_from_database(self.db,"BTCUSDT","1h","live")
 
     def test_gap_detected(self):
-        with sqlite3.connect(self.db) as db:
+        with closing(sqlite3.connect(self.db)) as db:
             db.execute("DELETE FROM candles WHERE rowid=(SELECT rowid FROM candles ORDER BY time LIMIT 1 OFFSET 100)")
         with self.assertRaises(ValueError):
             history_from_database(self.db,"BTCUSDT","1h","demo")
