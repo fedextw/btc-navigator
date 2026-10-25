@@ -6,7 +6,7 @@ class Stage5RotationTests(unittest.TestCase):
         seen=[]
         def run(state,*,batch_number):
             seen.append(batch_number)
-            return {"schema":"agent-stage5-cycle-v1","research":{},
+            return {"schema":"agent-stage5-cycle-v1","research":{"counts":{"attempted":1,"completed":1},"items":[{"status":"completed"}]},
                     "automatic_promotion_authorized":False,
                     "live_trading_authorized":False}
         result=run_rotation("/unused",rounds=3,start_batch=4,cycle_runner=run)
