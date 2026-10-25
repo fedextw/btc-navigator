@@ -75,9 +75,16 @@ def simulate(observations, strategy, interval_seconds=3600, round_trip_cost=0.00
     prospective=sum(t["prospective_signal_observed_before_entry"] for t in trades)
     prospective_returns=[t["net_return_fraction"] for t in trades
                          if t["prospective_signal_observed_before_entry"]]
+    prospective_wins=sum(value>0 for value in prospective_returns)
+    prospective_gross_profit=sum(max(value,0) for value in prospective_returns)
+    prospective_gross_loss=-sum(min(value,0) for value in prospective_returns)
+    prospective_peak=1.0
+    prospective_dd=0.0
     prospective_equity=1.0
     for value in prospective_returns:
         prospective_equity*=1+value
+        prospective_peak=max(prospective_peak,prospective_equity)
+        prospective_dd=max(prospective_dd,100*(1-prospective_equity/prospective_peak))
     returns=[t["net_return_fraction"] for t in trades]
     wins=sum(v>0 for v in returns)
     gross_profit=sum(max(v,0) for v in returns)
@@ -95,6 +102,10 @@ def simulate(observations, strategy, interval_seconds=3600, round_trip_cost=0.00
             "prospective_eligible_trades":prospective,
             "retrospective_only_trades":len(trades)-prospective,
             "prospective_paper_net_return_pct":round(100*(prospective_equity-1),6) if prospective else None,
+            "prospective_paper_win_rate_pct":round(100*prospective_wins/prospective,4) if prospective else None,
+            "prospective_paper_profit_factor":round(prospective_gross_profit/prospective_gross_loss,6) if prospective_gross_loss>0 else None,
+            "prospective_paper_max_drawdown_pct":round(prospective_dd,6) if prospective else None,
+            "prospective_paper_expectancy_fraction":round(sum(prospective_returns)/prospective,8) if prospective else None,
             "net_return_scope":"all_hypothetical_including_retrospective",
             "net_return_pct":round(100*(equity-1),6),
             "max_drawdown_pct":round(max_dd,6),
