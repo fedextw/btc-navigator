@@ -38,9 +38,13 @@ class StateResearchTests(unittest.TestCase):
 
     def test_gap_detected(self):
         with closing(sqlite3.connect(self.db)) as db:
-            db.execute("DELETE FROM candles WHERE symbol=? AND interval=? AND mode=? AND time=?",
+            deleted = db.execute("DELETE FROM candles WHERE symbol=? AND interval=? AND mode=? AND time=?",
                 ("BTCUSDT", "1h", "demo", (datetime(2026, 1, 1, tzinfo=timezone.utc) + timedelta(hours=100)).isoformat()))
+            self.assertEqual(deleted.rowcount, 1, "測試用 K 線未被刪除：請確認使用最新程式")
             db.commit()
+        with closing(sqlite3.connect(self.db)) as check_db:
+            remaining = check_db.execute("SELECT COUNT(*) FROM candles WHERE symbol=? AND interval=? AND mode=?", ("BTCUSDT","1h","demo")).fetchone()[0]
+        self.assertEqual(remaining, 359, "刪除後資料庫根數不正確")
         with self.assertRaises(ValueError):
             history_from_database(self.db,"BTCUSDT","1h","demo")
 
