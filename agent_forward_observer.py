@@ -5,7 +5,7 @@ scanner's database. A missing bar must not be represented as observation.
 """
 import argparse
 from contextlib import closing
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import json
 from pathlib import Path
 import sqlite3
@@ -53,17 +53,25 @@ def observe_once(state_dir, *, max_enrollments=3, max_bars_each=5, now=None):
                     recorded_times.add(_utc(saved["candle_time_utc"]))
                 # Advance beyond saved observations across bounded batches.
                 if recorded_times:
-                    cutoff=max(cutoff,max(recorded_times))
+                    ordered=sorted(recorded_times)
+                    if any((b-a).total_seconds()!=3600 for a,b in zip(ordered,ordered[1:])):
+                        raise ValueError("已保存前向 K 棒不連續，停止後續紀錄")
+                    cutoff=max(cutoff,ordered[-1])
                 query=db.execute("SELECT time,close_time,open,high,low,close,volume FROM candles "
                                  "WHERE symbol=? AND interval='1h' AND mode='live' AND time>? "
                                  "ORDER BY time ASC LIMIT ?",
                                  (symbol,cutoff.isoformat(),max_bars_each))
+                expected_next=cutoff+timedelta(seconds=3600) if recorded_times else None
                 for row in query.fetchall():
                     bar={"time":row[0],"close_time":row[1],"open":row[2],
                          "high":row[3],"low":row[4],"close":row[5],"volume":row[6]}
-                    if _utc(bar["close_time"])>=observed: continue
+                    bar_time=_utc(bar["time"])
+                    if expected_next is not None and bar_time!=expected_next:
+                        raise ValueError("前向行情存在缺口，停止觀測")
+                    if _utc(bar["close_time"])>=observed: break
                     record_candle(enrollment,bar,folder_out,observed_at=observed.isoformat())
                     stats["observed"]+=1
+                    expected_next=bar_time+timedelta(seconds=3600)
             except (OSError,ValueError,TypeError,KeyError,RuntimeError,sqlite3.Error):
                 stats["skipped"]+=1
     return stats
