@@ -60,6 +60,16 @@ def render(state_root):
                    "error":"發生錯誤","missing":"尚無紀錄"}.get(health["agent_status"],"需檢查"))
     st.caption(health["recommendation"])
     st.caption("健康燈號只能確認基本啟動，不代表行情持續更新、研究品質或可實盤下單。")
+    from agent_data_readiness import summarize
+    with st.expander("USDT 合約研究資料就緒情況", expanded=True):
+        readiness = summarize(state_root)
+        metrics = st.columns(3)
+        metrics[0].metric("已有 K 棒的 USDT 合約", readiness["observed_pairs"])
+        metrics[1].metric("達 300 根門檻", readiness["enough_bars"])
+        metrics[2].metric("抽查連續性合格", f'{readiness["ready_in_checked"]} / {readiness["checked_pairs"]}')
+        if readiness["ready_examples"]:
+            st.caption("抽查合格範例：" + "、".join(readiness["ready_examples"]))
+        st.caption(readiness["note"] + "；以上只讀取本機資料，不會觸發補資料或交易。")
     record = load_status(state_root)
     st.info(record["message"])
     if record.get("started_at"):
