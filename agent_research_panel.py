@@ -33,7 +33,7 @@ def load_status(state_root):
                 "proposal_status": str(proposal.get("status") or "未啟用")[:64],
                 "proposal_selected": str(proposal.get("selected") or "—")[:64],
                 "decision": str(outcome.get("status") or "—")[:64],
-                "reason": str(outcome.get("reason") or item.get("error_type") or "—")[:160],
+                "reason": ("等待研究資料累積（需至少 300 根連續 K 棒）" if item.get("error_type") == "DataNotReady" else str(outcome.get("reason") or item.get("error_type") or "—")[:160]),
                 "bars": outcome.get("bars") if isinstance(outcome.get("bars"), int) else None})
         text = {"running":"研究程序正在執行（如長時間不更新，請檢查研究日誌）。",
                 "completed":"最近一次研究批次（只讀）",
