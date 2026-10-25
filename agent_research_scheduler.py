@@ -55,8 +55,12 @@ def run_once(state_dir, symbols=("BTCUSDT",), interval="1h", mode="live", runner
             output.append({"symbol":symbol,"at":started,"status":"skipped",
                            "backfill":backfill_info,
                            "error_type":"DataNotReady" if waiting else type(exc).__name__})
+    counts = {"attempted":len(output),
+              "completed":sum(x["status"] == "completed" for x in output),
+              "waiting":sum(x.get("error_type") == "DataNotReady" for x in output),
+              "skipped_other":sum(x["status"] == "skipped" and x.get("error_type") != "DataNotReady" for x in output)}
     return {"schema":"agent-scheduler-v1","paper_only":True,"live_trading_authorized":False,"items":output,
-            "finished_at": datetime.now(timezone.utc).isoformat()}
+            "counts":counts,"finished_at": datetime.now(timezone.utc).isoformat()}
 
 
 def write_status(state_dir, report):
