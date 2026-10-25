@@ -1,3 +1,4 @@
+from contextlib import closing
 import sqlite3
 import tempfile
 import unittest
@@ -9,9 +10,10 @@ class StageFourMarketFreshnessTests(unittest.TestCase):
     def test_recent_local_bar_never_proves_exchange_connection(self):
         with tempfile.TemporaryDirectory() as td:
             root=Path(td)
-            with sqlite3.connect(root/"research.sqlite3") as db:
+            with closing(sqlite3.connect(root/"research.sqlite3")) as db:
                 db.execute("CREATE TABLE candles(interval TEXT,mode TEXT,close_time TEXT)")
                 db.execute("INSERT INTO candles VALUES(?,?,?)",("1h","live","2026-10-26T09:59:59+00:00"))
+                db.commit()
             result=inspect_freshness(td,now="2026-10-26T10:30:00Z")
             self.assertTrue(result["local_candle_recent"])
             self.assertFalse(result["exchange_connection_verified"])
@@ -22,14 +24,16 @@ class StageFourMarketFreshnessTests(unittest.TestCase):
     def test_old_and_future_bars_fail_closed(self):
         with tempfile.TemporaryDirectory() as td:
             root=Path(td)
-            with sqlite3.connect(root/"research.sqlite3") as db:
+            with closing(sqlite3.connect(root/"research.sqlite3")) as db:
                 db.execute("CREATE TABLE candles(interval TEXT,mode TEXT,close_time TEXT)")
                 db.execute("INSERT INTO candles VALUES(?,?,?)",("1h","live","2026-10-25T00:59:59+00:00"))
+                db.commit()
             stale=inspect_freshness(td,now="2026-10-26T10:30:00Z")
             self.assertEqual(stale["status"],"stale_local_candle")
             self.assertFalse(stale["local_candle_recent"])
-            with sqlite3.connect(root/"research.sqlite3") as db:
+            with closing(sqlite3.connect(root/"research.sqlite3")) as db:
                 db.execute("UPDATE candles SET close_time=?",("2026-10-26T11:59:59+00:00",))
+                db.commit()
             future=inspect_freshness(td,now="2026-10-26T10:30:00Z")
             self.assertEqual(future["reason"],"future_or_unclosed_candle")
             self.assertFalse(future["local_candle_recent"])
