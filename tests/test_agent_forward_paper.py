@@ -30,6 +30,14 @@ class ForwardPaperTests(unittest.TestCase):
             self.assertLess(trade["signal_utc"],trade["entry_utc"])
             self.assertLess(trade["entry_utc"],trade["exit_utc"])
 
+    def test_late_observations_are_retrospective_not_forward_verified(self):
+        result=simulate(observations(),"trend_8_30")
+        self.assertGreater(result["retrospective_only_trades"],0)
+        self.assertEqual(result["prospective_eligible_trades"],0)
+        self.assertEqual(result["evidence_status"],"retrospective_only_not_forward_verified")
+        self.assertTrue(all(t["prospective_signal_observed_before_entry"] is False
+                            for t in result["trades_detail"]))
+
     def test_missing_or_mixed_bars_rejected(self):
         with self.assertRaises(ValueError):
             simulate(observations(gap=True),"trend_8_30")
