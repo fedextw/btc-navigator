@@ -30,6 +30,11 @@ def stop(process):
 
 
 def main():
+    # Prevent Windows redirected-console cp1252 encoding failures on Chinese status text.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(errors="backslashreplace")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(errors="backslashreplace")
     signal.signal(signal.SIGTERM, handle_termination)
     parser = argparse.ArgumentParser(description="BTC Navigator 一鍵啟動：網站＋背景研究（無自動下單）")
     parser.add_argument("--demo", action="store_true", help="合成行情模式，不對外收集資料")
