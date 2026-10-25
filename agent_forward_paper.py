@@ -60,7 +60,8 @@ def simulate(observations, strategy, interval_seconds=3600, round_trip_cost=0.00
             exit_price=bars[i+3][4]
             r=side*(exit_price/entry-1)-round_trip_cost
             # Late observations cannot qualify as prospective entry signals.
-            timely=observed_times[i]<=bars[i+1][0]
+            # All indicator inputs must have been observed by entry time.
+            timely=max(observed_times[:i+1])<=bars[i+1][0]
             trades.append({"signal_utc":bars[i][0].isoformat(),
                            "prospective_signal_observed_before_entry":timely,
                            "entry_utc":bars[i+1][0].isoformat(),
@@ -72,6 +73,11 @@ def simulate(observations, strategy, interval_seconds=3600, round_trip_cost=0.00
         else:
             i+=1
     prospective=sum(t["prospective_signal_observed_before_entry"] for t in trades)
+    prospective_returns=[t["net_return_fraction"] for t in trades
+                         if t["prospective_signal_observed_before_entry"]]
+    prospective_equity=1.0
+    for value in prospective_returns:
+        prospective_equity*=1+value
     returns=[t["net_return_fraction"] for t in trades]
     wins=sum(v>0 for v in returns)
     gross_profit=sum(max(v,0) for v in returns)
@@ -88,6 +94,8 @@ def simulate(observations, strategy, interval_seconds=3600, round_trip_cost=0.00
             "observed_bars":len(bars),"trades":len(trades),"trades_detail":trades,
             "prospective_eligible_trades":prospective,
             "retrospective_only_trades":len(trades)-prospective,
+            "prospective_paper_net_return_pct":round(100*(prospective_equity-1),6) if prospective else None,
+            "net_return_scope":"all_hypothetical_including_retrospective",
             "net_return_pct":round(100*(equity-1),6),
             "max_drawdown_pct":round(max_dd,6),
             "win_rate_pct":round(100*wins/len(trades),4) if trades else None,
