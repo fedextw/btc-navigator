@@ -38,6 +38,7 @@ def main():
     parser.add_argument("--symbol", default="BTCUSDT", help="單幣研究預設顯示的 USDT 交易對；不限制全市場掃描")
     parser.add_argument("--interval", choices=["15m", "1h", "4h"], default="1h")
     parser.add_argument("--check", action="store_true", help="安裝並檢查相依套件後結束")
+    parser.add_argument("--agent-research", action="store_true", help="額外啟用獨立紙上策略研究排程（試驗功能，預設關閉）")
     parser.add_argument("--ready", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
     if sys.version_info < (3, 11):
@@ -85,8 +86,8 @@ def main():
     environment["BTC_DEFAULT_INTERVAL"] = args.interval
     if args.demo:
         environment["BTC_NAVIGATOR_DEMO"] = "1"
-    ui = worker = None
-    worker_log = None
+    ui = worker = agent = None
+    worker_log = agent_log = None
     try:
         print("[3/3] 啟動網站與持續研究程序…", flush=True)
         ui = subprocess.Popen([sys.executable, "-m", "streamlit", "run", "btc_app.py",
@@ -114,12 +115,34 @@ def main():
         if args.demo:
             command.append("--demo")
         worker = subprocess.Popen(command, cwd=ROOT, env=environment, stdout=worker_log, stderr=subprocess.STDOUT)
+        if args.agent_research:
+            # Separate process; its exit never stops the scanner or website.
+            # Bound to the chosen symbol, once per 24h; no trading permissions.
+            from market_data import valid_symbol
+            if not valid_symbol(args.symbol):
+                raise ValueError("Agent 研究幣種格式不正確")
+            agent_log = (state / "agent-research.log").open("a", encoding="utf-8")
+            agent_command = [sys.executable, "agent_research_scheduler.py",
+                             "--state-dir", str(state.resolve()),
+                             "--symbols", args.symbol, "--interval", args.interval,
+                             "--mode", "demo" if args.demo else "live", "--hours", "24"]
+            try:
+                agent = subprocess.Popen(agent_command, cwd=ROOT, env=environment,
+                                         stdout=agent_log, stderr=subprocess.STDOUT)
+                print("獨立 Agent 研究程序已啟用（僅紙上研究）。", flush=True)
+            except OSError as exc:
+                print(f"Agent 研究未啟動：{type(exc).__name__}；行情掃描不受影響。", flush=True)
+
         print("網站已啟動。背景會動態掃描全 Binance USDT 永續合約，設定與 Telegram 推播請到「全市場訊號」。", flush=True)
         print("保留此視窗即可持續運作；關閉瀏覽器不會停止。按 Ctrl+C 停止網站與背景程序。", flush=True)
         print("這是研究與紙上模擬系統，沒有自動下單功能。", flush=True)
         if not args.no_browser:
             webbrowser.open(f"http://127.0.0.1:{args.port}")
+        agent_exit_reported = False
         while ui.poll() is None:
+            if agent and agent.poll() is not None and not agent_exit_reported:
+                print("Agent 研究程序已停止；網站與行情掃描繼續運作，請查閱 agent-research.log。", flush=True)
+                agent_exit_reported = True
             if worker.poll() is not None:
                 raise RuntimeError("背景研究程序已停止。請查看 .local-state/scanner.log。")
             time.sleep(1)
@@ -128,8 +151,11 @@ def main():
         print("\n停止研究程序，紀錄已保留。", flush=True)
         return 0
     finally:
+        stop(agent)
         stop(worker)
         stop(ui)
+        if agent_log:
+            agent_log.close()
         if worker_log:
             worker_log.close()
 
