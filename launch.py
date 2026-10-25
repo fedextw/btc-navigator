@@ -125,7 +125,8 @@ def main():
             agent_command = [sys.executable, "agent_research_scheduler.py",
                              "--state-dir", str(state.resolve()),
                              "--symbols", args.symbol, "--interval", args.interval,
-                             "--mode", "demo" if args.demo else "live", "--hours", "24"]
+                             "--mode", "demo" if args.demo else "live", "--hours", "24",
+                             "--proposal-research"]
             try:
                 agent = subprocess.Popen(agent_command, cwd=ROOT, env=environment,
                                          stdout=agent_log, stderr=subprocess.STDOUT)
