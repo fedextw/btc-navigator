@@ -4,6 +4,7 @@ import csv
 import json
 import sqlite3
 import tempfile
+from contextlib import closing
 from pathlib import Path
 
 from agent_research_cycle import run_cycle, save_cycle
@@ -18,7 +19,7 @@ def history_from_database(db_path, symbol, interval, mode):
         raise ValueError("研究參數不正確")
     db_path = Path(db_path).resolve(strict=True)
     uri = db_path.as_uri() + "?mode=ro"
-    with sqlite3.connect(uri, uri=True, timeout=5) as db:
+    with closing(sqlite3.connect(uri, uri=True, timeout=5)) as db:
         # Explicit column selection and bound parameters; never writes to the live database.
         rows = db.execute(
             "SELECT time,open,high,low,close,volume FROM candles "
