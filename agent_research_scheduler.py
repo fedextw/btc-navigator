@@ -61,10 +61,13 @@ def main():
     parser.add_argument("--interval",choices=("15m","1h","4h"),default="1h")
     parser.add_argument("--mode",choices=("live","demo"),default="live")
     parser.add_argument("--once",action="store_true",help="只執行一輪")
+    parser.add_argument("--auto-universe",action="store_true",help="輪流研究資料庫內已累積足夠行情的 USDT 合約（每批最多10種）")
+    parser.add_argument("--retry-minutes",type=int,default=30,help="全批資料未就緒時重新檢查的分鐘數")
     parser.add_argument("--proposal-research", action="store_true", help="同時執行受控候選研究（預設關閉）")
     parser.add_argument("--hours",type=int,default=24,help="研究間隔（最短6小時）")
     args=parser.parse_args()
     if not 6 <= args.hours <= 168: parser.error("研究間隔必須6至168小時")
+    if not 5 <= args.retry_minutes <= 120: parser.error("等待資料重試必須5至120分鐘")
     proposal_runner = None
     if args.proposal_research:
         from agent_state_proposals import research_from_state
@@ -72,6 +75,7 @@ def main():
     from agent_single_instance import research_lock, AlreadyRunning
     try:
         with research_lock(args.state_dir):
+            batch_number = 0
             while True:
                 started_at = datetime.now(timezone.utc).isoformat()
                 write_status(args.state_dir, {
@@ -79,8 +83,21 @@ def main():
                     "live_trading_authorized": False, "phase": "running",
                     "started_at": started_at, "items": []})
                 try:
-                    result = run_once(args.state_dir,tuple(args.symbols),args.interval,args.mode,
-                                      proposal_runner=proposal_runner)
+                    if args.auto_universe:
+                        from agent_research_universe import next_batch
+                        current_symbols = next_batch(args.state_dir,args.interval,args.mode,batch_number=batch_number)
+                    else:
+                        current_symbols = tuple(args.symbols)
+                    if not current_symbols:
+                        result = {"schema":"agent-scheduler-v1","paper_only":True,
+                                  "live_trading_authorized":False,"items":[],
+                                  "finished_at":datetime.now(timezone.utc).isoformat(),
+                                  "data_waiting":True}
+                    else:
+                        result = run_once(args.state_dir,current_symbols,args.interval,args.mode,
+                                          proposal_runner=proposal_runner)
+                        if args.auto_universe:
+                            batch_number += 1
                     result["phase"] = "completed"
                     result["started_at"] = started_at
                 except Exception as exc:
@@ -94,7 +111,10 @@ def main():
                 print(json.dumps({"status_file":str(target),"phase":result["phase"],
                                   "items":result["items"]},ensure_ascii=False),flush=True)
                 if args.once:break
-                time.sleep(args.hours*3600)
+                items=result.get("items",[])
+                waiting=result.get("data_waiting",False) or (bool(items) and all(
+                    x.get("error_type")=="DataNotReady" for x in items))
+                time.sleep(args.retry_minutes*60 if waiting else args.hours*3600)
     except AlreadyRunning as exc:
         print(str(exc), flush=True)
         return 2
