@@ -59,7 +59,11 @@ def run_from_state(root, symbol, interval, mode, output_dir=None):
     path = save_cycle(report, location)
     return {"report_path": str(path), "selected": report["selected"],
             "status": report["paper_status"], "reason": report["reason"],
-            "bars": len(rows), "live_trading_authorized": False}
+            "bars": len(rows), "live_trading_authorized": False,
+            "profitability_evidence": report["profitability_evidence"],
+            "heldout_metrics": {k: report["heldout"].get(k) for k in
+                ("trades","net_expectancy_r","profit_factor","max_drawdown_pct")}
+                if report["heldout"] else None}
 
 
 def main():
