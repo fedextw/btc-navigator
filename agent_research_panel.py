@@ -24,8 +24,11 @@ def load_status(state_root):
             if not isinstance(item, dict) or item.get("status") not in ("completed", "skipped"):
                 raise ValueError("研究紀錄格式不正確")
             outcome = item.get("result") or {}
+            proposal = outcome.get("proposal_research") if isinstance(outcome.get("proposal_research"), dict) else {}
             clean.append({"symbol": str(item.get("symbol",""))[:32], "at": str(item.get("at",""))[:40],
                 "status": item["status"], "selected": str(outcome.get("selected") or "—")[:64],
+                "proposal_status": str(proposal.get("status") or "未啟用")[:64],
+                "proposal_selected": str(proposal.get("selected") or "—")[:64],
                 "decision": str(outcome.get("status") or "—")[:64],
                 "reason": str(outcome.get("reason") or item.get("error_type") or "—")[:160],
                 "bars": outcome.get("bars") if isinstance(outcome.get("bars"), int) else None})
