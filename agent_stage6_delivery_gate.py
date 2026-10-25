@@ -32,3 +32,16 @@ def inspect_delivery(state_dir, *, now=None):
             "live_trading_authorized":False,
             "automatic_promotion_authorized":False,
             "note":"此報告為正式交付缺口清單，絕不將 CI 綠燈視為實機或獲利驗證。"}
+
+def main():
+    import argparse
+    import json
+    parser=argparse.ArgumentParser(description="第六階段交付驗收（只讀、不下單）")
+    parser.add_argument("--state-dir",required=True)
+    args=parser.parse_args()
+    result=inspect_delivery(args.state_dir)
+    print(json.dumps(result,ensure_ascii=False,indent=2))
+    return 0 if result["status"]=="ready_for_delivery_review" else 2
+
+if __name__=="__main__":
+    raise SystemExit(main())
