@@ -135,6 +135,11 @@ def main():
                              "--symbols", args.symbol, "--interval", args.interval,
                              "--mode", "demo" if args.demo else "live", "--hours", "24",
                              "--proposal-research"]
+            if not args.demo:
+                # Opt-in B+C launcher: public Binance futures candles only.
+                # The scheduler retries missing data, checks contiguous UTC bars
+                # and records paper research; no exchange account or orders.
+                agent_command.append("--backfill-missing")
             try:
                 agent = subprocess.Popen(agent_command, cwd=ROOT, env=environment,
                                          stdout=agent_log, stderr=subprocess.STDOUT)
