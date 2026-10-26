@@ -57,6 +57,8 @@ class ExtractedReleaseTests(unittest.TestCase):
             self.assertIn("waiting_for_research_ready_symbols",stage5.stdout)
             self.assertIn('"live_trading_authorized": false',stage5.stdout)
             self.assertFalse((package/".agent-test-state"/"agent-stage5-rotation-progress.json").exists())
+            # Normal Python bytecode caches must not invalidate an installed package.
+            self.assertTrue(verify_package(package))
             self.assertFalse((package/".local-state").exists())
             self.assertFalse((package/".env").exists())
             # Corrupt one real extracted file and prove verification detects it.
