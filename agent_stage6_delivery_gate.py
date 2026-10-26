@@ -6,9 +6,11 @@ live exchange provenance, failure recovery, or profitability evidence.
 from agent_stage4_audit import audit
 from agent_stage5_batch import review_enrolled
 
-def inspect_delivery(state_dir, *, now=None):
+def inspect_delivery(state_dir, *, now=None, package_root=None):
     stage4=audit(state_dir,now=now)
     stage5=review_enrolled(state_dir,now=now)
+    package_verified=(package_root is not None and verify_package(package_root)
+                      and inspect(package_root)["ready"])
     checks={
         "stage4_field_evidence_complete":stage4.get("status")=="ready_for_review"
             and all(stage4.get("checks",{}).values()),
@@ -19,7 +21,7 @@ def inspect_delivery(state_dir, *, now=None):
             and all(c.get("decision",{}).get("status")!="hold_for_review"
                     for c in stage5.get("candidates",[])),
         "actual_exchange_execution_verified":False,
-        "standalone_windows_package_verified":False,
+        "standalone_windows_package_verified":bool(package_verified),
     }
     return {"schema":"agent-stage6-delivery-gate-v1",
             "status":"ready_for_delivery_review" if all(checks.values())
@@ -38,8 +40,9 @@ def main():
     import json
     parser=argparse.ArgumentParser(description="第六階段交付驗收（只讀、不下單）")
     parser.add_argument("--state-dir",required=True)
+    parser.add_argument("--package-root",help="指定已解壓的發行包，以驗證完整性與必要模組")
     args=parser.parse_args()
-    result=inspect_delivery(args.state_dir)
+    result=inspect_delivery(args.state_dir,package_root=args.package_root)
     import sys
     if hasattr(sys.stdout,"reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
