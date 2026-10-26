@@ -40,6 +40,9 @@ def main():
     parser.add_argument("--state-dir",required=True)
     args=parser.parse_args()
     result=inspect_delivery(args.state_dir)
+    import sys
+    if hasattr(sys.stdout,"reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     print(json.dumps(result,ensure_ascii=False,indent=2))
     return 0 if result["status"]=="ready_for_delivery_review" else 2
 
