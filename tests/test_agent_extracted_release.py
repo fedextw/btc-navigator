@@ -27,6 +27,11 @@ class ExtractedReleaseTests(unittest.TestCase):
                 z.extractall(extraction)
             package=extraction/PACKAGE_NAME
             self.assertTrue(verify_package(package),"Release SHA256 integrity mismatch")
+            integrity=subprocess.run([sys.executable,"agent_package_integrity.py",
+                                      "--root",str(package)],
+                                     cwd=package,capture_output=True,text=True,
+                                     encoding="utf-8",errors="replace",timeout=30)
+            self.assertEqual(integrity.returncode,0,integrity.stdout+integrity.stderr)
             report=inspect(package)
             self.assertTrue(report["ready"],report)
             self.assertTrue((package/"START_BC_RESEARCH_TEST.bat").is_file())
@@ -54,6 +59,16 @@ class ExtractedReleaseTests(unittest.TestCase):
             self.assertFalse((package/".agent-test-state"/"agent-stage5-rotation-progress.json").exists())
             self.assertFalse((package/".local-state").exists())
             self.assertFalse((package/".env").exists())
+            # Corrupt one real extracted file and prove verification detects it.
+            victim=package/"agent_stage5_cycle.py"
+            victim.write_bytes(victim.read_bytes()+b"\\n# corrupted")
+            self.assertFalse(verify_package(package))
+            integrity_bad=subprocess.run([sys.executable,"agent_package_integrity.py"],
+                                         cwd=package,capture_output=True,text=True,
+                                         encoding="utf-8",errors="replace",timeout=30)
+            self.assertEqual(integrity_bad.returncode,2,integrity_bad.stdout+integrity_bad.stderr)
+            victim.write_bytes(victim.read_bytes().removesuffix(b"\\n# corrupted"))
+            self.assertTrue(verify_package(package))
             check=subprocess.run([sys.executable,"launch.py","--ready","--check"],
                                  cwd=package,capture_output=True,text=True,
                                  encoding="utf-8",errors="replace",timeout=30)
