@@ -52,6 +52,8 @@ def main():
     if hasattr(sys.stdout,"reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
     print(json.dumps(result,ensure_ascii=False,indent=2))
+    if args.research_only:
+        return 0 if result["research_package_ready_for_manual_testing"] else 2
     return 0 if result["status"]=="ready_for_delivery_review" else 2
 
 if __name__=="__main__":
