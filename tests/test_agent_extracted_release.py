@@ -8,6 +8,7 @@ import zipfile
 
 from agent_build_release import build, PACKAGE_NAME
 from agent_release_preflight import inspect
+from agent_package_integrity import verify_package
 
 
 class ExtractedReleaseTests(unittest.TestCase):
@@ -25,6 +26,7 @@ class ExtractedReleaseTests(unittest.TestCase):
                         raise AssertionError("ZIP path traversal")
                 z.extractall(extraction)
             package=extraction/PACKAGE_NAME
+            self.assertTrue(verify_package(package),"Release SHA256 integrity mismatch")
             report=inspect(package)
             self.assertTrue(report["ready"],report)
             self.assertTrue((package/"START_BC_RESEARCH_TEST.bat").is_file())
