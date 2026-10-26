@@ -13,6 +13,7 @@ def inspect_delivery(state_dir, *, now=None, package_root=None):
     stage5=review_enrolled(state_dir,now=now)
     package_verified=(package_root is not None and verify_package(package_root)
                       and inspect(package_root)["ready"])
+    research_package_ready=bool(package_verified and stage5.get("schema")=="agent-stage5-batch-v1" and stage5.get("paper_only") is True and stage5.get("live_trading_authorized") is False and stage5.get("automatic_promotion_authorized") is False)
     checks={
         "stage4_field_evidence_complete":stage4.get("status")=="ready_for_review"
             and all(stage4.get("checks",{}).values()),
@@ -26,6 +27,8 @@ def inspect_delivery(state_dir, *, now=None, package_root=None):
         "standalone_windows_package_verified":bool(package_verified),
     }
     return {"schema":"agent-stage6-delivery-gate-v1",
+            "research_package_ready_for_manual_testing":research_package_ready,
+            "research_package_status":"ready_for_manual_research_testing" if research_package_ready else "not_ready_for_manual_research_testing",
             "status":"ready_for_delivery_review" if all(checks.values())
                      else "not_ready_for_delivery",
             "checks":checks,
