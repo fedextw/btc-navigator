@@ -25,3 +25,18 @@ def verify_package(root):
         return True
     except (ValueError,TypeError,KeyError,OSError):
         return False
+
+def main():
+    import argparse
+    import sys
+    parser=argparse.ArgumentParser(description="驗證解壓後的 B+C ZIP 核心檔案完整性")
+    parser.add_argument("--root",default=str(Path(__file__).resolve().parent))
+    args=parser.parse_args()
+    passed=verify_package(args.root)
+    if hasattr(sys.stdout,"reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+    print("檔案完整性驗證通過" if passed else "檔案完整性驗證失敗：請重新取得原始 ZIP")
+    return 0 if passed else 2
+
+if __name__=="__main__":
+    raise SystemExit(main())
