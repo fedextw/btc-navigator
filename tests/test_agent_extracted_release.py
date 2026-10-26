@@ -40,6 +40,16 @@ class ExtractedReleaseTests(unittest.TestCase):
                                   encoding="utf-8",errors="replace",timeout=30)
             self.assertEqual(stage6.returncode,2,stage6.stdout+stage6.stderr)
             self.assertIn("not_ready_for_delivery",stage6.stdout)
+            # Real extracted stage-five CLI must wait safely on an empty workspace.
+            stage5=subprocess.run([sys.executable,"agent_stage5_cycle.py",
+                                   "--state-dir",str(package/".agent-test-state"),
+                                   "--rounds","2","--resume"],
+                                  cwd=package,capture_output=True,text=True,
+                                  encoding="utf-8",errors="replace",timeout=30)
+            self.assertEqual(stage5.returncode,0,stage5.stdout+stage5.stderr)
+            self.assertIn("waiting_for_research_ready_symbols",stage5.stdout)
+            self.assertIn('"live_trading_authorized": false',stage5.stdout)
+            self.assertFalse((package/".agent-test-state"/"agent-stage5-rotation-progress.json").exists())
             self.assertFalse((package/".local-state").exists())
             self.assertFalse((package/".env").exists())
             check=subprocess.run([sys.executable,"launch.py","--ready","--check"],
