@@ -59,6 +59,12 @@ class ExtractedReleaseTests(unittest.TestCase):
             self.assertFalse((package/".agent-test-state"/"agent-stage5-rotation-progress.json").exists())
             # Normal Python bytecode caches must not invalidate an installed package.
             self.assertTrue(verify_package(package))
+            (package/"startup.log").write_text("startup log",encoding="utf-8")
+            (package/".launcher-venv").mkdir()
+            (package/".launcher-venv"/"runtime.txt").write_text("runtime",encoding="utf-8")
+            self.assertTrue(verify_package(package),"Normal launcher output must not invalidate package")
+            self.assertIn("agent_package_integrity.py",(package/"START_BC_RESEARCH_TEST.bat").read_text(encoding="utf-8"))
+            self.assertIn("if errorlevel 1",(package/"START_BC_RESEARCH_TEST.bat").read_text(encoding="utf-8"))
             self.assertFalse((package/".local-state").exists())
             self.assertFalse((package/".env").exists())
             # Corrupt one real extracted file and prove verification detects it.
