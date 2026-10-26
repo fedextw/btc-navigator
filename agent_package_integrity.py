@@ -18,7 +18,9 @@ def verify_package(root):
         actual={p.relative_to(root).as_posix() for p in root.rglob("*")
                 if p.is_file() and p!=manifest and
                 "__pycache__" not in p.relative_to(root).parts and
-                ".agent-test-state" not in p.relative_to(root).parts}
+                ".agent-test-state" not in p.relative_to(root).parts and
+                ".launcher-venv" not in p.relative_to(root).parts and
+                p.name not in ("startup.log","scanner.log","agent-research.log")}
         if set(files)!=actual:
             return False
         for relative,expected in files.items():
