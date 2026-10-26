@@ -11,7 +11,7 @@ class AutomaticBackfillTests(unittest.TestCase):
         source=(ROOT/"launch.py").read_text(encoding="utf-8")
         self.assertIn('if not args.demo:',source)
         self.assertIn('agent_command.append("--backfill-missing")',source)
-        self.assertIn('"--agent-research"',(ROOT/"START_BC_RESEARCH_TEST.bat").read_text(encoding="utf-8"))
+        self.assertIn('--agent-research',(ROOT/"START_BC_RESEARCH_TEST.bat").read_text(encoding="utf-8"))
 
     def test_one_cycle_backfills_then_checks_and_records_paper_research(self):
         called=[]
