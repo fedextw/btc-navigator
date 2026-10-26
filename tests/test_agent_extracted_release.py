@@ -1,6 +1,11 @@
 """Verify real delivered ZIP contents after extraction, not only source tree."""
 from pathlib import Path
 import tempfile
+import os
+import json
+import socket
+import time
+import urllib.request
 import subprocess
 import sys
 import unittest
@@ -81,6 +86,53 @@ class ExtractedReleaseTests(unittest.TestCase):
                                  cwd=package,capture_output=True,text=True,
                                  encoding="utf-8",errors="replace",timeout=30)
             self.assertEqual(check.returncode,0,check.stdout+check.stderr)
+
+
+    def test_extracted_package_launches_complete_demo_services(self):
+        root=Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as td:
+            archive=Path(td)/"release.zip"
+            build(root,archive)
+            with zipfile.ZipFile(archive) as z:
+                z.extractall(Path(td)/"unpacked")
+            package=Path(td)/"unpacked"/PACKAGE_NAME
+            with socket.socket() as sock:
+                sock.bind(("127.0.0.1",0))
+                port=sock.getsockname()[1]
+            state=Path(td)/"disposable-state"
+            state.mkdir()
+            env=os.environ.copy()
+            env["BTC_NAVIGATOR_STATE_DIR"]=str(state)
+            env["PYTHONIOENCODING"]="utf-8"
+            process=subprocess.Popen([sys.executable,"launch.py","--ready","--demo",
+                    "--no-browser","--port",str(port),"--agent-research","--demo-test-stop"],
+                    cwd=package,env=env,stdout=subprocess.DEVNULL,stderr=subprocess.STDOUT)
+            try:
+                deadline=time.monotonic()+65
+                while time.monotonic()<deadline:
+                    self.assertIsNone(process.poll(),"Extracted release launcher exited early")
+                    try:
+                        with urllib.request.urlopen(
+                            "http://127.0.0.1:"+str(port)+"/_stcore/health",timeout=2) as r:
+                            web_ready=r.status==200
+                    except OSError:
+                        web_ready=False
+                    status=state/"agent-status"/"latest.json"
+                    if web_ready and (state/"scanner.log").is_file() and status.is_file():
+                        data=json.loads(status.read_text(encoding="utf-8"))
+                        self.assertFalse(data["live_trading_authorized"])
+                        break
+                    time.sleep(.5)
+                else:
+                    self.fail("Extracted release website/scanner/research never all became ready")
+            finally:
+                (state/".demo-test-stop").touch()
+                try:
+                    process.wait(timeout=22)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait(timeout=10)
+                self.assertEqual(process.returncode,0)
 
 
 if __name__=="__main__":
