@@ -79,6 +79,14 @@ class ExtractedReleaseTests(unittest.TestCase):
             victim=package/"agent_stage5_cycle.py"
             victim.write_bytes(victim.read_bytes()+b"\\n# corrupted")
             self.assertFalse(verify_package(package))
+            # Delivery gate itself must reject the same corrupted extracted ZIP.
+            damaged=subprocess.run([sys.executable,"agent_stage6_delivery_gate.py",
+                                    "--state-dir",str(package/".agent-test-state"),
+                                    "--package-root",str(package)],
+                                   cwd=package,capture_output=True,text=True,
+                                   encoding="utf-8",errors="replace",timeout=30)
+            self.assertEqual(damaged.returncode,2,damaged.stdout+damaged.stderr)
+            self.assertFalse(json.loads(damaged.stdout)["checks"]["standalone_windows_package_verified"])
             integrity_bad=subprocess.run([sys.executable,"agent_package_integrity.py"],
                                          cwd=package,capture_output=True,text=True,
                                          encoding="utf-8",errors="replace",timeout=30)
