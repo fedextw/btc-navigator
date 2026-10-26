@@ -52,6 +52,8 @@ class ExtractedReleaseTests(unittest.TestCase):
                                   encoding="utf-8",errors="replace",timeout=30)
             self.assertEqual(stage6.returncode,2,stage6.stdout+stage6.stderr)
             self.assertIn("not_ready_for_delivery",stage6.stdout)
+            self.assertIn(\'"standalone_windows_package_verified": true\',stage6.stdout)
+            self.assertIn(\'"actual_exchange_execution_verified": false\',stage6.stdout)
             # Real extracted stage-five CLI must wait safely on an empty workspace.
             stage5=subprocess.run([sys.executable,"agent_stage5_cycle.py",
                                    "--state-dir",str(package/".agent-test-state"),
