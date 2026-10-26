@@ -55,7 +55,7 @@ def build(root, output):
                 hashes[candidate.relative_to(stage).as_posix()]=hashlib.sha256(candidate.read_bytes()).hexdigest()
         (stage/"PACKAGE_SHA256.json").write_text(
             json.dumps({"schema":"agent-package-sha256-v1","files":hashes},
-                       sort_keys=True,indent=2)+"\\n",encoding="utf-8")
+                       sort_keys=True,indent=2)+chr(10),encoding="utf-8")
         result=inspect(stage)
         if not result["ready"]:
             raise RuntimeError(f"發行檢查失敗：{result}")
