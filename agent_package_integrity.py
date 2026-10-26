@@ -13,7 +13,12 @@ def verify_package(root):
         files=payload["files"]
         if payload.get("schema")!="agent-package-sha256-v1" or not isinstance(files,dict) or not files:
             return False
-        actual={p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file() and p!=manifest}
+        # Python creates bytecode caches after the first launch; they were not
+        # part of the ZIP and must not invalidate its immutable source files.
+        actual={p.relative_to(root).as_posix() for p in root.rglob("*")
+                if p.is_file() and p!=manifest and
+                "__pycache__" not in p.relative_to(root).parts and
+                ".agent-test-state" not in p.relative_to(root).parts}
         if set(files)!=actual:
             return False
         for relative,expected in files.items():
