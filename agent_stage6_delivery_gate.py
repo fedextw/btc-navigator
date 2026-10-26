@@ -5,6 +5,8 @@ live exchange provenance, failure recovery, or profitability evidence.
 """
 from agent_stage4_audit import audit
 from agent_stage5_batch import review_enrolled
+from agent_package_integrity import verify_package
+from agent_release_preflight import inspect
 
 def inspect_delivery(state_dir, *, now=None, package_root=None):
     stage4=audit(state_dir,now=now)
