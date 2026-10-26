@@ -87,6 +87,7 @@ class ExtractedReleaseTests(unittest.TestCase):
                                    encoding="utf-8",errors="replace",timeout=30)
             self.assertEqual(damaged.returncode,2,damaged.stdout+damaged.stderr)
             self.assertFalse(json.loads(damaged.stdout)["checks"]["standalone_windows_package_verified"])
+            self.assertFalse(json.loads(damaged.stdout)["research_package_ready_for_manual_testing"])
             integrity_bad=subprocess.run([sys.executable,"agent_package_integrity.py"],
                                          cwd=package,capture_output=True,text=True,
                                          encoding="utf-8",errors="replace",timeout=30)
