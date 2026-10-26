@@ -46,6 +46,7 @@ def main():
     parser=argparse.ArgumentParser(description="第六階段交付驗收（只讀、不下單）")
     parser.add_argument("--state-dir",required=True)
     parser.add_argument("--package-root",help="指定已解壓的發行包，以驗證完整性與必要模組")
+    parser.add_argument("--research-only",action="store_true",help="僅驗收研究測試版，不代表實盤資格")
     args=parser.parse_args()
     result=inspect_delivery(args.state_dir,package_root=args.package_root)
     import sys
