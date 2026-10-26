@@ -47,7 +47,8 @@ class ExtractedReleaseTests(unittest.TestCase):
                 self.assertTrue((package/module).is_file(),module)
             # Smoke-test the actual EXTRACTED entrypoints, not the checkout.
             stage6=subprocess.run([sys.executable,"agent_stage6_delivery_gate.py",
-                                   "--state-dir",str(package/".agent-test-state")],
+                                   "--state-dir",str(package/".agent-test-state"),
+                                   "--package-root",str(package)],
                                   cwd=package,capture_output=True,text=True,
                                   encoding="utf-8",errors="replace",timeout=30)
             self.assertEqual(stage6.returncode,2,stage6.stdout+stage6.stderr)
