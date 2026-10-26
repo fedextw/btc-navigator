@@ -97,6 +97,10 @@ def main():
     if not 5 <= args.retry_minutes <= 120: parser.error("等待資料重試必須5至120分鐘")
     backfill_runner = None
     if args.backfill_missing and args.mode == "live":
+        # Ensure the isolated research database exists even if the scanner
+        # has not yet completed its first collection cycle.
+        from collector import connect as connect_research_db
+        connect_research_db(args.state_dir).close()
         from agent_history_backfill import backfill_once
         backfill_runner = backfill_once
     proposal_runner = None
