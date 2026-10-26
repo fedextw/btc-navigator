@@ -14,6 +14,33 @@ if not exist "bootstrap.py" (
   pause
   exit /b 1
 )
+if not exist "PACKAGE_SHA256.json" (
+  echo ERROR: Missing package integrity manifest. Extract the full ZIP again.
+  pause
+  exit /b 2
+)
+if not exist "agent_package_integrity.py" (
+  echo ERROR: Missing integrity verifier. Extract the full ZIP again.
+  pause
+  exit /b 2
+)
+where py >nul 2>nul
+if not errorlevel 1 (
+  py -3 agent_package_integrity.py
+) else (
+  where python >nul 2>nul
+  if errorlevel 1 (
+    echo ERROR: Python 3.11+ is required.
+    pause
+    exit /b 1
+  )
+  python agent_package_integrity.py
+)
+if errorlevel 1 (
+  echo ERROR: Package integrity failed. Please extract a fresh ZIP.
+  pause
+  exit /b 2
+)
 set "BTC_NAVIGATOR_STATE_DIR=%~dp0.agent-test-state"
 if not exist "%BTC_NAVIGATOR_STATE_DIR%" mkdir "%BTC_NAVIGATOR_STATE_DIR%"
 call "%~dp0START.bat" --port 8591 --agent-research %*
