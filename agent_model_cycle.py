@@ -119,7 +119,7 @@ def resume_from_report(new_csv_path, output_dir, model_fn, *, model_id,
                        previous_report_path, cost=0.0014):
     """Explicit restart from an existing immutable first-generation report.
 
-    Requires a new non-overlapping dataset; never repeats or overwrites prior
+    Requires fresh non-overlapping dataset; rejected hypotheses may inform research.\n    Never repeats or overwrites prior
     research. This is manual resumption, not unattended scheduling.
     """
     import hashlib
@@ -131,8 +131,6 @@ def resume_from_report(new_csv_path, output_dir, model_fn, *, model_id,
     prior=json.loads(data)
     if prior.get("schema") != "agent-orchestrator-v1":
         raise ValueError("Invalid previous generation")
-    if prior.get("selected") is None:
-        raise ValueError("Cannot resume without a qualified parent")
     if prior.get("paper_only") is not True or prior.get("live_trading_authorized") is not False:
         raise ValueError("Unsafe previous research")
     target=Path(output_dir)
