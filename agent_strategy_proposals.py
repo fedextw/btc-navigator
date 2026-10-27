@@ -9,7 +9,7 @@ from pathlib import Path
 from agent_csv_research import read_candles, evaluate, COST
 from agent_research_cycle import make_signals
 
-FAMILIES = {"trend", "breakout"}
+FAMILIES = {"trend", "breakout", "mean_reversion"}
 MAX_SPEC_SIZE = 16_384
 
 
@@ -19,7 +19,7 @@ def validate(spec):
     family, fast, slow = spec["family"], spec["lookback"], spec["slow"]
     if family not in FAMILIES or type(fast) is not int or type(slow) is not int:
         raise ValueError("策略家族或週期格式錯誤")
-    if not 5 <= fast <= 60 or not (fast+5 <= slow <= 160 if family == "trend" else slow == 0):
+    if not 5 <= fast <= 60 or not (fast+5 <= slow <= 160 if family == "trend" else 5 <= slow <= 100 if family == "mean_reversion" else slow == 0):
         raise ValueError("參數超出安全研究範圍")
     if not isinstance(spec["rationale"], str) or not 1 <= len(spec["rationale"]) <= 500:
         raise ValueError("缺少研究假設")
