@@ -32,12 +32,18 @@ class EvolutionTests(unittest.TestCase):
         reasons={x["strategy"]: x["reason"] for x in report["validation_diagnostics"]}
         self.assertEqual(reasons["agent_trend_10_50"],"insufficient_samples")
         self.assertEqual(reasons["agent_breakout_20_0"],"excess_drawdown")
-        self.assertIn("上一代診斷", report["proposals"][0]["rationale"])
+        self.assertEqual(report["proposals"], [])
+        self.assertEqual(report["status"], "no_qualified_parents")
     def test_invalid_drawdown_rejected(self):
         sample=parent()
         sample["validation"]["max_drawdown_pct"]=-2
         with self.assertRaises(ValueError):
             evolve({"source":"pre_registered_parameter_grammar","candidates":[sample]})
+    def test_reject_nonfinite_evidence(self):
+        sample=parent(score=float("nan"))
+        with self.assertRaises(ValueError):
+            evolve({"source":"pre_registered_parameter_grammar","candidates":[sample]})
+
     def test_deterministic(self):
         previous={"source":"pre_registered_parameter_grammar","candidates":[parent(),parent("breakout",20,0)]}
         self.assertEqual(evolve(previous),evolve(previous))
