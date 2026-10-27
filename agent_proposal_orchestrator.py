@@ -12,6 +12,7 @@ from pathlib import Path
 from agent_csv_research import read_candles, evaluate, COST
 from agent_research_cycle import make_signals
 from agent_strategy_proposals import validate
+from agent_evolution import evolve
 
 MAX_PROPOSALS = 12
 
@@ -28,12 +29,23 @@ def propose():
     return specs
 
 
-def experiment(csv_path, cost=COST):
+def experiment(csv_path, cost=COST, ancestor=None):
     if not 0 <= cost <= .1:
         raise ValueError("交易成本參數無效")
     bars, fingerprint = read_candles(csv_path)
     start, end = int(len(bars)*.6), int(len(bars)*.8)
-    specs = propose()
+    if ancestor is None:
+        specs = propose()
+        lineage = None
+        source = "pre_registered_parameter_grammar"
+    else:
+        if not isinstance(ancestor, dict) or ancestor.get("schema") != "agent-orchestrator-v1":
+            raise ValueError("不合法的上一代研究報告")
+        if ancestor.get("dataset_sha256") == fingerprint:
+            raise ValueError("下一代研究不可重用上一代相同的資料集")
+        lineage = evolve(ancestor)
+        specs = lineage["proposals"]
+        source = "validation_guided_evolution"
     if len(specs) > MAX_PROPOSALS:
         raise ValueError("候選數超出預先規定上限")
     results = []
@@ -51,7 +63,8 @@ def experiment(csv_path, cost=COST):
         r["validation"]["net_expectancy_r"],
         -r["validation"]["max_drawdown_pct"], r["strategy"])) if winners else None
     return {
-        "schema": "agent-orchestrator-v1", "source": "pre_registered_parameter_grammar",
+        "schema": "agent-orchestrator-v1", "source": source,
+        "parent_report_sha256": lineage["parent_report_sha256"] if lineage else None,
         "dataset_sha256": fingerprint, "cost_fraction": cost,
         "candidate_count": len(results), "candidates": results,
         "selected": selected["strategy"] if selected else None,
@@ -80,8 +93,10 @@ def main():
     p = argparse.ArgumentParser(description="Agent 受控提案與驗證循環")
     p.add_argument("csv")
     p.add_argument("--out", default=".local-state/agent-proposals")
+    p.add_argument("--ancestor", help="上一代研究 JSON；使用不同資料集進行下一代驗證")
     args = p.parse_args()
-    report = experiment(args.csv)
+    ancestor = json.loads(Path(args.ancestor).read_text(encoding="utf-8")) if args.ancestor else None
+    report = experiment(args.csv, ancestor=ancestor)
     path = save_report(report, args.out)
     print(json.dumps({"saved": str(path), "selected": report["selected"],
                       "status": report["status"]}, ensure_ascii=False))
