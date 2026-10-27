@@ -38,3 +38,20 @@ def fully_completed(report):
             and type(counts.get("completed")) is int
             and counts["completed"]==len(items)
             and all(isinstance(x,dict) and x.get("status")=="completed" for x in items))
+
+def failed_symbols(report):
+    """Return only skipped symbols, never silently mark partial success complete."""
+    items=report.get("items")
+    if not isinstance(items,list) or not items:
+        raise ValueError("研究批次紀錄無效")
+    failed=[]
+    for entry in items:
+        if not isinstance(entry,dict) or entry.get("status") not in ("completed","skipped"):
+            raise ValueError("研究批次狀態無效")
+        symbol=entry.get("symbol")
+        from agent_symbol_validation import valid_symbol
+        if not valid_symbol(symbol):
+            raise ValueError("研究幣種無效")
+        if entry["status"]=="skipped":
+            failed.append(symbol)
+    return tuple(failed)
