@@ -88,6 +88,12 @@ class OrchestrationTests(unittest.TestCase):
         self.assertFalse(result["live_trading_authorized"])
         self.assertEqual(result, experiment(self.path, ai_proposals=[proposal]))
 
+    def test_external_ai_proposals_reject_duplicate_parameters(self):
+        first={"family":"trend","lookback":10,"slow":50,"rationale":"first"}
+        same={"family":"trend","lookback":10,"slow":50,"rationale":"rephrased"}
+        with self.assertRaisesRegex(ValueError,"重複策略"):
+            experiment(self.path,ai_proposals=[first,same])
+
     def test_external_ai_proposals_reject_untrusted_strategy_code(self):
         bad={"family":"python_exec","lookback":10,"slow":50,"rationale":"unsafe"}
         with self.assertRaises(ValueError):
