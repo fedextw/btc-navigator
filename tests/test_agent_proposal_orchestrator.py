@@ -1,4 +1,5 @@
 import csv
+import hashlib
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -46,6 +47,9 @@ class OrchestrationTests(unittest.TestCase):
         location=Path(self.temp.name)/"reports"
         self.assertEqual(save_report(report,location),save_report(report,location))
         self.assertEqual(len(list(location.glob("*.json"))),1)
+        report_path=save_report(report,location)
+        self.assertEqual(report_path.stem,hashlib.sha256(report_path.read_bytes()).hexdigest())
+        self.assertNotIn(b"\\r\\n",report_path.read_bytes())
 
     def test_only_pre_registered_specs(self):
         self.assertEqual(len(propose()),8)
