@@ -44,6 +44,30 @@ class FairPaperQueueTests(unittest.TestCase):
                              {"review_error","waiting_fresh_candles"})
             self.assertFalse(result["live_trading_authorized"])
 
+    def test_restart_uses_existing_requests_without_data_loss(self):
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as td:
+            request={"status":"awaiting_fresh_independent_comparison",
+                     "old_strategy":"trend_8_30","new_candidate":"breakout_20",
+                     "old_historical_cutoff_utc":"2026-01-01T00:00:00+00:00",
+                     "new_research_cutoff_utc":"2026-02-01T00:00:00+00:00",
+                     "live_trading_authorized":False}
+            original=save_comparison_request(td,"BTCUSDT","1h",request)
+            directory=Path(td)/"agent-paper-comparison-requests"
+            initial={p.name:p.read_bytes() for p in directory.glob("*.json")}
+            with patch("agent_fair_forward_comparison.compare_fresh_paper",
+                       return_value={"status":"waiting_fresh_candles",
+                                     "live_trading_authorized":False}):
+                first=review_comparison_requests(td,batch_number=0)
+                second=review_comparison_requests(td,batch_number=1)
+            self.assertEqual(first["items"][0]["request_sha256"],
+                             original["request_sha256"])
+            self.assertEqual(first["items"],second["items"])
+            self.assertEqual(initial,{p.name:p.read_bytes()
+                                      for p in directory.glob("*.json")})
+            self.assertEqual(original,save_comparison_request(td,"BTCUSDT","1h",request))
+            self.assertEqual(len(list(directory.glob("*.json"))),1)
+
     def test_missing_verified_cutoff_cannot_be_queued(self):
         with tempfile.TemporaryDirectory() as td:
             candidate={"status":"awaiting_fresh_independent_comparison",
