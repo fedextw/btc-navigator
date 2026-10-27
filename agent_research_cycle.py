@@ -21,6 +21,42 @@ CANDIDATES = tuple(
 assert len(CANDIDATES) == 16
 
 
+
+def generate_followup_candidates(comparisons):
+    """Bounded proposals around validation leaders; no access to held-out trades."""
+    if not isinstance(comparisons,list):
+        raise ValueError("研究結果格式不正確")
+    seeds=sorted(
+        (r for r in comparisons if isinstance(r,dict)
+         and isinstance(r.get("validation"),dict)
+         and r["validation"].get("trades",0)>=5),
+        key=lambda r:(-r["validation"]["net_expectancy_r"],
+                      r["validation"]["max_drawdown_pct"],r["candidate"])
+    )[:2]
+    existing={c[0] for c in CANDIDATES}
+    proposals=[]
+    for seed in seeds:
+        named=seed["candidate"]
+        parent=next((c for c in CANDIDATES if c[0]==named),None)
+        if parent is None:
+            continue
+        _,family,fast,slow=parent
+        if family=="trend":
+            variants=((max(3,fast-2),slow),(fast+2,slow),
+                      (fast,max(fast+5,slow-5)),(fast,slow+5))
+        else:
+            variants=((max(5,fast-3),0),(fast+3,0))
+        for f,s in variants:
+            if f>=s and family=="trend":
+                continue
+            label=f"{family}_{f}_{s}" if family=="trend" else f"breakout_{f}"
+            if label not in existing and all(c[0]!=label for c in proposals):
+                proposals.append((label,family,f,s))
+            if len(proposals)>=8:
+                return tuple(proposals)
+    return tuple(proposals)
+
+
 def make_signals(bars, candidate):
     _, family, fast, slow = candidate
     close = [r[4] for r in bars]
@@ -49,6 +85,14 @@ def run_cycle(csv_path, *, cost=COST):
         outcomes = evaluate(bars, make_signals(bars, candidate), val_start, test_start, cost)
         comparisons.append({"candidate": candidate[0],
                             "validation": {k:v for k,v in outcomes.items() if k != "trades_detail"}})
+    # Second bounded search is explicitly exploratory: validation is reused
+    # to propose neighbors. Holdout is still untouched until final selection.
+    followups=generate_followup_candidates(comparisons)
+    for candidate in followups:
+        outcomes=evaluate(bars,make_signals(bars,candidate),val_start,test_start,cost)
+        comparisons.append({"candidate":candidate[0],
+                            "validation":{k:v for k,v in outcomes.items()
+                                          if k!="trades_detail"}})
     # Minimum 5 validation trades; otherwise no selection and no holdout peek.
     valid = [c for c in comparisons if c["validation"]["trades"] >= 5]
     chosen = None
@@ -60,7 +104,7 @@ def run_cycle(csv_path, *, cost=COST):
             c["validation"]["net_expectancy_r"],
             -c["validation"]["max_drawdown_pct"], c["candidate"]))
         chosen = selected["candidate"]
-        candidate = next(c for c in CANDIDATES if c[0] == chosen)
+        candidate = next(c for c in (*CANDIDATES,*followups) if c[0] == chosen)
         result = evaluate(bars, make_signals(bars, candidate), test_start, n, cost)
         heldout = {k:v for k,v in result.items() if k != "trades_detail"}
         evidence = assess(result)
@@ -72,7 +116,9 @@ def run_cycle(csv_path, *, cost=COST):
                    "train_end": bars[val_start-1][0].isoformat(),
                    "validation_end": bars[test_start-1][0].isoformat(),
                    "heldout_end": bars[-1][0].isoformat()},
-        "candidates": comparisons, "selected": chosen, "heldout": heldout,
+        "candidates": comparisons, "followup_candidate_count": len(followups),
+        "selection_bias_warning": "validation_reused_for_adaptive_search_requires_fresh_forward_test",
+        "selected": chosen, "heldout": heldout,
         "profitability_evidence": evidence,
         "paper_status": "research_candidate" if chosen and reason.startswith("初步") else "rejected",
         "reason": reason,
