@@ -169,6 +169,17 @@ def main():
                         from agent_forward_batch import review_frozen_batch
                         result["forward_paper_review"]=review_frozen_batch(
                             args.state_dir,limit=3,batch_number=batch_number)
+                        # At most one deteriorated symbol is re-researched on
+                        # currently available candles. This is never promotion,
+                        # execution, or proof of improvement.
+                        requests=[x["research_recheck"] for x in
+                                  result["forward_paper_review"]["items"]
+                                  if isinstance(x.get("research_recheck"),dict)]
+                        if requests:
+                            symbol=requests[0]["symbol"]
+                            result["deterioration_research"]=run_once(
+                                args.state_dir,(symbol,),args.interval,args.mode,
+                                proposal_runner=None,backfill_runner=None)
                     result["phase"] = "completed"
                     if args.auto_universe:
                         result["next_batch"] = batch_number
