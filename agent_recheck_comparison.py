@@ -36,10 +36,40 @@ def compare_research_recheck(state_dir, reference_sha256, recheck):
     selected=result.get("selected")
     if selected is not None and not isinstance(selected,str):
         raise ValueError("重研究選擇結果無效")
+    # A replacement may only be judged on bars AFTER its own research cutoff.
+    # The older strategy cutoff is not sufficient: the new search already
+    # consumed later market data and would contaminate apparent improvement.
+    report_name=result.get("report_path")
+    if not isinstance(report_name,str) or not report_name:
+        return {"schema":"bc-recheck-comparison-v1",
+                "status":"replacement_cutoff_not_verified",
+                "old_strategy":baseline.get("strategy"),
+                "new_candidate":selected,
+                "paper_only":True,"independent_improvement_proven":False,
+                "automatic_promotion_authorized":False,
+                "live_trading_authorized":False}
+    report_path=Path(report_name).resolve()
+    root=Path(state_dir).resolve()
+    if root not in report_path.parents or report_path.suffix!=".json":
+        raise ValueError("重研究報告路徑不合法")
+    report=json.loads(report_path.read_text(encoding="utf-8"))
+    from datetime import datetime,timezone
+    cutoff=report.get("config",{}).get("heldout_end")
+    if not isinstance(cutoff,str) or report.get("selected")!=selected:
+        raise ValueError("重研究時間界線或策略不一致")
+    end=datetime.fromisoformat(cutoff.replace("Z","+00:00"))
+    if end.tzinfo is None or end.utcoffset().total_seconds()!=0:
+        raise ValueError("重研究截止時間不是UTC")
+    old=baseline.get("historical_cutoff_utc")
+    if isinstance(old,str):
+        old_end=datetime.fromisoformat(old.replace("Z","+00:00"))
+        if old_end.tzinfo is None or end<=old_end:
+            raise ValueError("新的研究資料截止時間未超過原策略")
     return {"schema":"bc-recheck-comparison-v1",
             "status":"awaiting_fresh_independent_comparison",
             "old_strategy":baseline.get("strategy"),
             "new_candidate":selected,
+            "new_research_cutoff_utc":cutoff,
             "same_candidate":selected==baseline.get("strategy"),
             "old_historical_cutoff_utc":baseline.get("historical_cutoff_utc"),
             "new_research_bars":result.get("bars"),
