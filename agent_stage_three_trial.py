@@ -22,16 +22,23 @@ def run_stage_three_trial(root, *, symbol="BTCUSDT", interval="1h", model="gpt-4
     target.mkdir(parents=True,exist_ok=True)
     dataset=download_public_candles(target/"market.csv",symbol=symbol,interval=interval,
                                     count=count,fetch=fetch)
-    provider=propose if propose is not None else lambda prompt:openai_compatible_model(prompt,model=model)
+    real_provider_calls=[]
+    def real_provider(prompt):
+        response=openai_compatible_model(prompt,model=model)
+        real_provider_calls.append(True)  # Only a successful API response counts.
+        return response
+    provider=propose if propose is not None else real_provider
     # Require an independent 60%+ validation window for the second generation.
     cutoffs=[max(300,int(count*.36)),count]
     result=run_multigeneration_model_cycle(dataset["csv"],target/"reports",
                    provider,model_id=model,cutoffs=cutoffs)
     # Model success alone is not stage completion. No external attestation is
     # injected here: the verifier must report incomplete when evidence is short.
-    check=verify_stage_three(result["reports"])
+    verified_live_provider=(propose is None and len(real_provider_calls)==result["completed_generations"] and len(real_provider_calls)>=2)
+    check=verify_stage_three(result["reports"],live_provider_verified=verified_live_provider)
     summary={"schema":"agent-stage-three-local-trial-v1","market":dataset,
              "model":model,"research":result,"acceptance":check,
+             "provider_verified_by_live_calls":verified_live_provider,
              "paper_only":True,"live_trading_authorized":False}
     (target/"trial_summary.json").write_text(
         json.dumps(summary,sort_keys=True,ensure_ascii=False,indent=2,allow_nan=False)+"\n",
