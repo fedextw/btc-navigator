@@ -19,17 +19,29 @@ class FakeResponse:
 
 class AdapterTests(unittest.TestCase):
     def test_safe_chat_request_and_plain_text_response(self):
-        response=json.dumps({"choices":[{"message":{"content":"[]"}}]}).encode()
+        proposal={"family":"trend","lookback":10,"slow":50,"rationale":"Test"}
+        response=json.dumps({"choices":[{"message":{"content":json.dumps({"proposals":[proposal]})}}]}).encode()
         with patch("agent_llm_adapter.urllib.request.urlopen",return_value=FakeResponse(response)) as http:
             out=openai_compatible_model("ideas",model="research-test",api_key="test-only")
-        self.assertEqual(out,"[]")
+        self.assertEqual(json.loads(out),[proposal])
         request=http.call_args.args[0]
         self.assertEqual(request.get_method(),"POST")
         self.assertEqual(http.call_args.kwargs["timeout"],30)
         payload=json.loads(request.data)
         self.assertEqual(payload["model"],"research-test")
+        self.assertEqual(payload["response_format"]["type"],"json_schema")
+        self.assertTrue(payload["response_format"]["json_schema"]["strict"])
         self.assertNotIn("tools",payload)
         self.assertNotIn("test-only",json.dumps(payload))
+    def test_invalid_structured_proposal_rejected(self):
+        response=json.dumps({"choices":[{"message":{"content":json.dumps({
+            "proposals":[{"family":"trend","lookback":10,"slow":50,
+                          "rationale":"test","unexpected":True}]})}}]}).encode()
+        with patch("agent_llm_adapter.urllib.request.urlopen",
+                   return_value=FakeResponse(response)):
+            with self.assertRaisesRegex(ValueError,"strict research schema"):
+                openai_compatible_model("ideas",model="test",api_key="fake-test")
+
     def test_reject_missing_credentials_and_plain_http(self):
         with self.assertRaises(ValueError):
             openai_compatible_model("ideas",model="test",api_key="")
