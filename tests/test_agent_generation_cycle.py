@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from agent_generation_cycle import run_generations
+from agent_proposal_orchestrator import experiment as actual_experiment
 
 class GenerationCycleTests(unittest.TestCase):
     def setUp(self):
@@ -22,8 +23,17 @@ class GenerationCycleTests(unittest.TestCase):
                 p=100+i*.06+(i%7)*.01
                 w.writerow(((origin+timedelta(hours=i)).isoformat(),p,p+1,p-1,p+.04,100))
 
+    def force_first_generation_qualified(self, *args, **kwargs):
+        report=actual_experiment(*args, **kwargs)
+        if kwargs.get("ancestor") is None:
+            # Explicit test fixture: independent of whether synthetic prices
+            # happen to qualify under the real profitability threshold.
+            report["selected"]="test_fixture_validated_parent"
+        return report
+
     def test_two_generations_save_lineage_with_no_orders(self):
-        answer=run_generations(self.csv,self.root/"records",[400,1000])
+        with patch("agent_generation_cycle.experiment", side_effect=self.force_first_generation_qualified):
+            answer=run_generations(self.csv,self.root/"records",[400,1000])
         self.assertEqual(answer["generations"],2)
         self.assertFalse(answer["live_trading_authorized"])
         first,second=[json.loads(Path(p).read_text(encoding="utf-8")) for p in answer["evidence_paths"]]
@@ -34,8 +44,9 @@ class GenerationCycleTests(unittest.TestCase):
 
     def test_reject_overlapping_validation_and_no_partial_output(self):
         output=self.root/"overlap"
-        with self.assertRaises(ValueError):
-            run_generations(self.csv,output,[400,600])
+        with patch("agent_generation_cycle.experiment", side_effect=self.force_first_generation_qualified):
+            with self.assertRaises(ValueError):
+                run_generations(self.csv,output,[400,600])
         self.assertFalse(output.exists())
 
     def test_reject_overwrite(self):
