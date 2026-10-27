@@ -54,3 +54,40 @@ def run_model_feedback_cycle(csv_path, output_dir, model_fn, *, model_id,
                 "stop_reason":None,
                 "reports":[first["report_path"],second["report_path"]],
                 "paper_only":True,"live_trading_authorized":False}
+
+def resume_from_report(new_csv_path, output_dir, model_fn, *, model_id,
+                       previous_report_path, cost=0.0014):
+    """Explicit restart from an existing immutable first-generation report.
+
+    Requires a new non-overlapping dataset; never repeats or overwrites prior
+    research. This is manual resumption, not unattended scheduling.
+    """
+    import hashlib
+    source=Path(previous_report_path)
+    data=source.read_bytes()
+    # Content-addressed reports written by save_report are immutable evidence.
+    if source.suffix != ".json" or source.stem != hashlib.sha256(data).hexdigest():
+        raise ValueError("Previous report is not content-addressed evidence")
+    prior=json.loads(data)
+    if prior.get("schema") != "agent-orchestrator-v1":
+        raise ValueError("Invalid previous generation")
+    if prior.get("selected") is None:
+        raise ValueError("Cannot resume without a qualified parent")
+    if prior.get("paper_only") is not True or prior.get("live_trading_authorized") is not False:
+        raise ValueError("Unsafe previous research")
+    target=Path(output_dir)
+    if target.exists() and any(target.iterdir()):
+        raise FileExistsError("Cannot overwrite existing research")
+    # New temporal evidence is required before the model is called.
+    from agent_model_feedback import check_feedback_readiness
+    check_feedback_readiness(new_csv_path,prior,cost)
+    result=research_with_feedback(new_csv_path,target,model_fn,
+                                  model_id=model_id,prior=prior,cost=cost)
+    latest=json.loads(Path(result["report_path"]).read_text(encoding="utf-8"))
+    expected=hashlib.sha256(json.dumps(prior,sort_keys=True,ensure_ascii=False,
+                                       allow_nan=False).encode("utf-8")).hexdigest()
+    if latest.get("parent_report_sha256") != expected or latest.get("model_feedback_used") is not True:
+        raise ValueError("Resumed research lineage mismatch")
+    return {"schema":"agent-model-resume-v1","report_path":result["report_path"],
+            "parent_report_sha256":expected,"paper_only":True,
+            "live_trading_authorized":False}
