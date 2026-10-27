@@ -29,9 +29,13 @@ def run_generations(csv_path, output_dir, boundaries, cost=0.0014):
         raise FileExistsError("Do not overwrite an earlier research run")
     reports = []
     ancestor = None
+    stop_reason = None
     with tempfile.TemporaryDirectory() as directory:
         snapshot = Path(directory) / "closed_candles.csv"
         for cutoff in boundaries:
+            if ancestor is not None and ancestor.get("selected") is None:
+                stop_reason = "no_qualified_parent_for_next_generation"
+                break
             with snapshot.open("w", newline="", encoding="utf-8") as handle:
                 writer = csv.writer(handle)
                 writer.writerow(("time", "open", "high", "low", "close", "volume"))
@@ -45,6 +49,8 @@ def run_generations(csv_path, output_dir, boundaries, cost=0.0014):
     return {"schema":"agent-generations-v1", "generations":len(paths),
             "evidence_paths":[str(p) for p in paths],
             "sources":[r["source"] for r in reports],
+            "requested_generations": len(boundaries),
+            "stop_reason": stop_reason,
             "paper_only":True,"live_trading_authorized":False,
             "status":"research_only_no_promotion"}
 
