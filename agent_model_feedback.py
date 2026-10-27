@@ -5,6 +5,7 @@ a caller-supplied model for a new hypothesis. It never exposes execution hooks.
 """
 import json
 import math
+import hashlib
 from datetime import datetime
 from agent_csv_research import read_candles
 from agent_model_research import model_research
@@ -56,5 +57,7 @@ def research_with_feedback(csv_path,output_dir,model_fn,*,model_id,prior,cost=0.
         raise ValueError("Validation window overlaps prior research")
     def propose(prompt):
         return model_fn(json.dumps(context,sort_keys=True,ensure_ascii=False)+"\n"+prompt)
-    # The model is never invoked when independent validation is unavailable.
-    return model_research(csv_path,output_dir,propose,model_id=model_id,cost=cost)
+    # Link the model-derived candidate back to the exact parent report.
+    parent_hash=hashlib.sha256(json.dumps(prior,sort_keys=True,ensure_ascii=False,allow_nan=False).encode("utf-8")).hexdigest()
+    return model_research(csv_path,output_dir,propose,model_id=model_id,cost=cost,
+                          parent_report_sha256=parent_hash)
