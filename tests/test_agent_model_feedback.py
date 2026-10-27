@@ -1,4 +1,5 @@
 import unittest
+import json
 from unittest.mock import patch
 from datetime import datetime, timedelta, timezone
 from agent_model_feedback import feedback_context, research_with_feedback
@@ -44,6 +45,26 @@ class FeedbackTests(unittest.TestCase):
                 lineage=model.call_args.kwargs["parent_report_sha256"]
                 self.assertEqual(len(lineage),64)
                 self.assertTrue(all(c in "0123456789abcdef" for c in lineage))
+
+    def test_model_cannot_recycle_all_previous_specs(self):
+        p=self.baseline()
+        p["cost_fraction"]=.0014
+        p["dataset_latest_utc"]="2026-01-01T00:00:00+00:00"
+        p["candidates"][0]["spec"]={"family":"trend","lookback":10,"slow":50,"rationale":"old"}
+        bars=[(datetime(2026,2,1,tzinfo=timezone.utc)+timedelta(hours=i),) for i in range(400)]
+        with patch("agent_model_feedback.read_candles",return_value=(bars,"newhash")):
+            with patch("agent_model_feedback.model_research") as downstream:
+                def invoke_model(_,__,proposal,**kwargs):
+                    return proposal("hypothesize")
+                downstream.side_effect=invoke_model
+                with self.assertRaisesRegex(ValueError,"repeated"):
+                    research_with_feedback("new.csv","out",lambda _:json.dumps([
+                        {"family":"trend","lookback":10,"slow":50,"rationale":"same"}]),
+                        model_id="stub",prior=p)
+                fresh=research_with_feedback("new.csv","out",lambda _:json.dumps([
+                    {"family":"trend","lookback":13,"slow":50,"rationale":"new"}]),
+                    model_id="stub",prior=p)
+                self.assertIn("lookback",fresh)
 
     def test_nan_rejected(self):
         a=self.baseline()
