@@ -64,9 +64,11 @@ def main():
         from agent_csv_research import read_candles
         candles, fingerprint=read_candles(args.csv)
         if args.prior:
-            from agent_model_feedback import feedback_context
+            from agent_model_feedback import check_feedback_readiness
             prior=json.loads(Path(args.prior).read_text(encoding="utf-8"))
-            feedback_context(prior)
+            readiness=check_feedback_readiness(args.csv,prior)
+            if readiness["dataset_sha256"] != fingerprint:
+                raise ValueError("Dataset changed during preflight")
         print(json.dumps({"status":"local_inputs_validated","candles":len(candles),
                           "dataset_sha256":fingerprint,"model_called":False,
                           "paper_only":True,"live_trading_authorized":False},
