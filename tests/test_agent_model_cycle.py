@@ -99,8 +99,11 @@ class ModelCycleTests(unittest.TestCase):
                                       model_id="stub",first_cutoff=400,second_cutoff=1000)
         prior=first["reports"][0]
         called=[]
+        overlap=self.root/"overlapping.csv"
+        with self.data.open("r",encoding="utf-8") as source, overlap.open("w",encoding="utf-8") as target:
+            target.writelines(source.readlines()[:501])
         with self.assertRaisesRegex(ValueError,"Reused prior dataset|overlaps"):
-            resume_from_report(self.data,self.root/"resume",lambda x:called.append(x),
+            resume_from_report(overlap,self.root/"resume",lambda x:called.append(x),
                                model_id="stub",previous_report_path=prior)
         self.assertEqual(called,[])
         self.assertFalse((self.root/"resume").exists())
