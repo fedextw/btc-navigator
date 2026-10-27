@@ -7,15 +7,18 @@ from pathlib import Path
 from agent_csv_research import read_candles, evaluate, COST
 from agent_profitability_gate import assess
 
-# Small, predeclared search budget. No learned strategy code execution.
-CANDIDATES = (
-    ("trend_8_30", "trend", 8, 30),
-    ("trend_10_50", "trend", 10, 50),
-    ("trend_20_80", "trend", 20, 80),
-    ("breakout_15", "breakout", 15, 0),
-    ("breakout_20", "breakout", 20, 0),
-    ("breakout_40", "breakout", 40, 0),
+# Bounded, deterministic strategy-parameter exploration; never execute generated code.
+# Candidate selection uses validation only; held-out samples remain untouched.
+TREND_PAIRS = ((5,20),(8,30),(10,50),(12,48),(15,60),(20,80),(30,100),(40,160))
+BREAKOUT_WINDOWS = (10,15,20,30,40,60,80,120)
+CANDIDATES = tuple(
+    (f"trend_{fast}_{slow}", "trend", fast, slow)
+    for fast,slow in TREND_PAIRS
+) + tuple(
+    (f"breakout_{window}", "breakout", window, 0)
+    for window in BREAKOUT_WINDOWS
 )
+assert len(CANDIDATES) == 16
 
 
 def make_signals(bars, candidate):
@@ -74,7 +77,7 @@ def run_cycle(csv_path, *, cost=COST):
         "paper_status": "research_candidate" if chosen and reason.startswith("初步") else "rejected",
         "reason": reason,
         "live_trading_authorized": False,
-        "note": "固定六組參數自動比較，不是生成式AI自主寫策略；資料真偽、實際成交和重複研究偏差未獨立確認。",
+        "note": "受控的16組歷史策略參數搜尋，不是生成式AI自主寫策略；多次搜尋偏差、資料真偽及前向績效尚待獨立確認。",
     }
 
 
