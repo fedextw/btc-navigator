@@ -51,5 +51,23 @@ class OrchestrationTests(unittest.TestCase):
         self.assertEqual(len(propose()),8)
 
 
+    def test_evolution_requires_new_dataset_and_keeps_lineage(self):
+        prior=experiment(self.path)
+        with self.assertRaises(ValueError):
+            experiment(self.path, ancestor=prior)
+        with self.path.open("a", encoding="utf-8") as stream:
+            # New independent future candle changes data fingerprint; this alone
+            # does not prove unbiased forward validation.
+            stream.write("2026-01-17T16:00:00+00:00,125,126,124,125,100\\n")
+        next_generation=experiment(self.path, ancestor=prior)
+        self.assertEqual(next_generation["source"], "validation_guided_evolution")
+        self.assertIsNotNone(next_generation["parent_report_sha256"])
+        self.assertFalse(next_generation["live_trading_authorized"])
+        self.assertLessEqual(next_generation["candidate_count"], 12)
+
+    def test_evolution_rejects_untrusted_ancestor(self):
+        with self.assertRaises(ValueError):
+            experiment(self.path, ancestor={"schema":"unknown"})
+
 if __name__=="__main__":
     unittest.main()
