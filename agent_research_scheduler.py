@@ -188,6 +188,14 @@ def main():
                                      result["forward_paper_review"]["items"]
                                      if x.get("research_recheck") is requests[0]),
                                 result["deterioration_research"])
+                            from agent_fair_paper_queue import save_comparison_request
+                            result["comparison_request"]=save_comparison_request(
+                                args.state_dir,symbol,args.interval,
+                                result["deterioration_comparison"])
+                    if args.auto_universe and args.mode=="live":
+                        from agent_fair_paper_queue import review_comparison_requests
+                        result["fair_paper_comparisons"]=review_comparison_requests(
+                            args.state_dir,limit=2,batch_number=batch_number)
                     result["phase"] = "completed"
                     if args.auto_universe:
                         result["next_batch"] = batch_number
