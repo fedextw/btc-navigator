@@ -197,9 +197,14 @@ def main():
                                 result["deterioration_comparison"]={"status":"review_error",
                                     "error_type":type(exc).__name__,"live_trading_authorized":False}
                     if args.auto_universe and args.mode=="live":
-                        from agent_fair_paper_queue import review_comparison_requests
-                        result["fair_paper_comparisons"]=review_comparison_requests(
-                            args.state_dir,limit=2,batch_number=batch_number)
+                        try:
+                            from agent_fair_paper_queue import review_comparison_requests
+                            result["fair_paper_comparisons"]=review_comparison_requests(
+                                args.state_dir,limit=2,batch_number=batch_number)
+                        except (ValueError,OSError,RuntimeError,KeyError,TypeError) as exc:
+                            result["fair_paper_comparisons"]={
+                                "status":"review_error","error_type":type(exc).__name__,
+                                "paper_only":True,"live_trading_authorized":False}
                     result["phase"] = "completed"
                     if args.auto_universe:
                         result["next_batch"] = batch_number
