@@ -56,9 +56,12 @@ class OrchestrationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             experiment(self.path, ancestor=prior)
         with self.path.open("a", encoding="utf-8") as stream:
-            # New independent future candle changes data fingerprint; this alone
-            # does not prove unbiased forward validation.
-            stream.write("2026-01-17T16:00:00+00:00,125,126,124,125,100\n")
+            # Extend far enough that the new validation interval begins
+            # strictly AFTER all candles available to the ancestor.
+            origin=datetime(2026,1,1,tzinfo=timezone.utc)
+            for i in range(400, 1000):
+                p=100+i*.06+(i%7)*.01
+                stream.write(f"{(origin+timedelta(hours=i)).isoformat()},{p},{p+1},{p-1},{p+.04},100\n")
         next_generation=experiment(self.path, ancestor=prior)
         self.assertEqual(next_generation["source"], "validation_guided_evolution")
         self.assertIsNotNone(next_generation["parent_report_sha256"])
