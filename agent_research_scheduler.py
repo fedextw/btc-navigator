@@ -162,6 +162,13 @@ def main():
                                 pending=failed_symbols(result)
                                 if pending:
                                     save_pending(args.state_dir,batch_number,pending)
+                    # Review a bounded number of previously frozen candidates
+                    # using only newly closed candles. Observations are
+                    # diagnostics, never input for strategy promotion.
+                    if args.auto_universe and args.mode=="live":
+                        from agent_forward_batch import review_frozen_batch
+                        result["forward_paper_review"]=review_frozen_batch(
+                            args.state_dir,limit=3)
                     result["phase"] = "completed"
                     if args.auto_universe:
                         result["next_batch"] = batch_number
