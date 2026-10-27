@@ -168,7 +168,7 @@ def main():
                     if args.auto_universe and args.mode=="live":
                         from agent_forward_batch import review_frozen_batch
                         result["forward_paper_review"]=review_frozen_batch(
-                            args.state_dir,limit=3)
+                            args.state_dir,limit=3,batch_number=batch_number)
                     result["phase"] = "completed"
                     if args.auto_universe:
                         result["next_batch"] = batch_number
