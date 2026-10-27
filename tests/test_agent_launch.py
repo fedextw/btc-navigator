@@ -26,7 +26,7 @@ class LaunchAgentTests(unittest.TestCase):
 
     def test_dedicated_log_and_paper_only(self):
         self.assertIn('"agent-research.log"', self.source)
-        self.assertIn('"--hours", "24"', self.source)
+        self.assertIn('"--hours", "6" if not args.demo else "24"', self.source)
 
 
 if __name__ == "__main__":
