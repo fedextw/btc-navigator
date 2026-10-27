@@ -110,7 +110,8 @@ def main():
     from agent_single_instance import research_lock, AlreadyRunning
     try:
         with research_lock(args.state_dir):
-            from agent_research_cursor import read_cursor,save_cursor,fully_completed
+            from agent_research_cursor import read_cursor,save_cursor,fully_completed,failed_symbols
+            from agent_research_pending import load_pending,save_pending,clear_pending
             batch_number = read_cursor(args.state_dir) if args.auto_universe else 0
             while True:
                 started_at = datetime.now(timezone.utc).isoformat()
@@ -121,7 +122,7 @@ def main():
                 try:
                     if args.auto_universe:
                         from agent_research_universe import next_batch
-                        current_symbols = next_batch(args.state_dir,args.interval,args.mode,batch_number=batch_number)
+                        current_symbols = load_pending(args.state_dir,batch_number) or next_batch(args.state_dir,args.interval,args.mode,batch_number=batch_number)
                     else:
                         current_symbols = tuple(args.symbols)
                     if not current_symbols:
@@ -133,10 +134,20 @@ def main():
                         result = run_once(args.state_dir,current_symbols,args.interval,args.mode,
                                           proposal_runner=proposal_runner,
                                           backfill_runner=backfill_runner)
-                        if args.auto_universe and fully_completed(result):
-                            batch_number += 1
-                            save_cursor(args.state_dir,batch_number)
+                        if args.auto_universe:
+                            if fully_completed(result):
+                                # Advance cursor before clearing pending: a
+                                # crash cannot silently skip uncompleted work.
+                                batch_number += 1
+                                save_cursor(args.state_dir,batch_number)
+                                clear_pending(args.state_dir)
+                            else:
+                                pending=failed_symbols(result)
+                                if pending:
+                                    save_pending(args.state_dir,batch_number,pending)
                     result["phase"] = "completed"
+                    if args.auto_universe:
+                        result["next_batch"] = batch_number
                     result["started_at"] = started_at
                 except Exception as exc:
                     # Process-level failure must be visible, not silently misreported.
