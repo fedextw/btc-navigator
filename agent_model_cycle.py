@@ -106,9 +106,8 @@ def run_multigeneration_model_cycle(csv_path, output_dir, model_fn, *,
                 if current.get("parent_report_sha256") != expected or current.get("model_feedback_used") is not True:
                     raise ValueError("Broken research lineage")
             paths.append(result["report_path"])
-            if current.get("selected") is None:
-                stop_reason="no_qualified_parent" if generation < len(cutoffs)-1 else None
-                break
+            # Rejected hypotheses are useful research feedback, not promotion.
+            # Preserve the evidence and advance only on independent data.
             previous_report=current
     return {"schema":"agent-multigeneration-model-v1",
             "requested_generations":len(cutoffs),
