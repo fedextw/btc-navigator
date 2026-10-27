@@ -22,6 +22,22 @@ class EvolutionTests(unittest.TestCase):
         del sample["validation"]["trades"]
         with self.assertRaises(ValueError):
             evolve({"source":"pre_registered_parameter_grammar","candidates":[sample]})
+    def test_failure_diagnostics_follow_validation_evidence(self):
+        low=parent(score=-0.2)
+        low["validation"]["trades"]=3
+        risk=parent("breakout",20,0,.1)
+        risk["validation"]["max_drawdown_pct"]=18
+        report=evolve({"source":"pre_registered_parameter_grammar",
+                       "candidates":[low,risk]})
+        reasons={x["strategy"]: x["reason"] for x in report["validation_diagnostics"]}
+        self.assertEqual(reasons["agent_trend_10_50"],"insufficient_samples")
+        self.assertEqual(reasons["agent_breakout_20_0"],"excess_drawdown")
+        self.assertIn("上一代診斷", report["proposals"][0]["rationale"])
+    def test_invalid_drawdown_rejected(self):
+        sample=parent()
+        sample["validation"]["max_drawdown_pct"]=-2
+        with self.assertRaises(ValueError):
+            evolve({"source":"pre_registered_parameter_grammar","candidates":[sample]})
     def test_deterministic(self):
         previous={"source":"pre_registered_parameter_grammar","candidates":[parent(),parent("breakout",20,0)]}
         self.assertEqual(evolve(previous),evolve(previous))
