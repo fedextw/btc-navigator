@@ -40,5 +40,25 @@ class BackupTests(unittest.TestCase):
                 verify_backup(destination)
 
 
+    def test_existing_backup_never_overwritten(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            state = Path(tmp) / "state"
+            state.mkdir()
+            with closing(sqlite3.connect(state / "research.sqlite3")) as db:
+                db.execute("CREATE TABLE example (value TEXT)")
+                db.execute("INSERT INTO example VALUES ('first')")
+                db.commit()
+            destination = Path(tmp) / "backup"
+            backup_state(state, destination)
+            original = (destination / "research.sqlite3").read_bytes()
+            with closing(sqlite3.connect(state / "research.sqlite3")) as db:
+                db.execute("INSERT INTO example VALUES ('second')")
+                db.commit()
+            with self.assertRaises(FileExistsError):
+                backup_state(state, destination)
+            self.assertEqual((destination / "research.sqlite3").read_bytes(), original)
+            self.assertTrue(verify_backup(destination))
+
+
 if __name__=="__main__":
     unittest.main()
