@@ -14,6 +14,7 @@ def summarize_batches(state_dir, limit=200):
     outcomes={}
     rejected=0
     attempts=0
+    reasons_total={}
     for path in files[-limit:]:
         if path.stat().st_size>32768:
             raise ValueError("研究紀錄檔異常")
@@ -32,14 +33,23 @@ def summarize_batches(state_dir, limit=200):
             if not isinstance(item,dict) or not valid_symbol(item.get("symbol")) or item.get("status") not in ("completed","skipped"):
                 raise ValueError("研究幣種或狀態異常")
             symbol=item["symbol"]
-            record=outcomes.setdefault(symbol,{"completed":0,"skipped":0})
+            record=outcomes.setdefault(symbol,{"completed":0,"skipped":0,"reasons":{}})
             record[item["status"]]+=1
             attempts+=1
+            if item["status"]=="skipped":
+                reason="market_data_not_ready" if item.get("error_type")=="DataNotReady" else "execution_error"
+            elif item.get("strategy_status")=="rejected":
+                reason="strategy_rejected"
+            else:
+                reason="research_completed_not_forward_validated"
+            record["reasons"][reason]=record["reasons"].get(reason,0)+1
+            reasons_total[reason]=reasons_total.get(reason,0)+1
             if item["status"]=="completed" and item.get("strategy_status")=="rejected":
                 rejected+=1
     return {"schema":"agent-multi-symbol-research-summary-v1",
             "files_checked":min(len(files),limit),"symbols_observed":len(outcomes),
             "total_attempts":attempts,"rejected_research":rejected,
+            "reason_counts":dict(sorted(reasons_total.items())),
             "by_symbol":dict(sorted(outcomes.items())),
             "evidence_type":"research_outcome_only_not_prospective_performance",
             "automatic_promotion_authorized":False,"live_trading_authorized":False}
