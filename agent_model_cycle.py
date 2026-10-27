@@ -91,3 +91,33 @@ def resume_from_report(new_csv_path, output_dir, model_fn, *, model_id,
     return {"schema":"agent-model-resume-v1","report_path":result["report_path"],
             "parent_report_sha256":expected,"paper_only":True,
             "live_trading_authorized":False}
+
+def main():
+    """Explicit CLI for offline first/second generation and later resume."""
+    import argparse
+    from agent_llm_adapter import openai_compatible_model
+    parser=argparse.ArgumentParser(description="受控 AI 跨代研究及恢復（僅紙上研究）")
+    parser.add_argument("csv")
+    parser.add_argument("--out",required=True)
+    parser.add_argument("--model",required=True)
+    modes=parser.add_mutually_exclusive_group(required=True)
+    modes.add_argument("--resume",help="Immutable prior report JSON path")
+    modes.add_argument("--first-cutoff",type=int)
+    parser.add_argument("--second-cutoff",type=int)
+    args=parser.parse_args()
+    provider=lambda prompt:openai_compatible_model(prompt,model=args.model)
+    if args.resume:
+        if args.second_cutoff is not None:
+            parser.error("--second-cutoff is only valid with --first-cutoff")
+        result=resume_from_report(args.csv,args.out,provider,model_id=args.model,
+                                  previous_report_path=args.resume)
+    else:
+        if args.second_cutoff is None:
+            parser.error("--second-cutoff is required with --first-cutoff")
+        result=run_model_feedback_cycle(args.csv,args.out,provider,model_id=args.model,
+                                        first_cutoff=args.first_cutoff,
+                                        second_cutoff=args.second_cutoff)
+    print(json.dumps(result,ensure_ascii=False))
+
+if __name__=="__main__":
+    main()
