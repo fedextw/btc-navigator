@@ -6,6 +6,7 @@ a caller-supplied model for a new hypothesis. It never exposes execution hooks.
 import json
 import math
 import hashlib
+from agent_strategy_proposals import validate
 from datetime import datetime
 from agent_csv_research import read_candles
 from agent_model_research import model_research
@@ -56,7 +57,22 @@ def research_with_feedback(csv_path,output_dir,model_fn,*,model_id,prior,cost=0.
     if validation_start <= cutoff:
         raise ValueError("Validation window overlaps prior research")
     def propose(prompt):
-        return model_fn(json.dumps(context,sort_keys=True,ensure_ascii=False)+"\n"+prompt)
+        raw = model_fn(json.dumps(context,sort_keys=True,ensure_ascii=False)+"\\n"+prompt)
+        # The next generation must include a previously untested specification.
+        # This compares strategy identities, not rationale text.
+        if isinstance(raw,str) and len(raw.encode("utf-8")) <= 16384:
+            try:
+                proposals=json.loads(raw)
+            except ValueError:
+                return raw
+            if isinstance(proposals,list) and proposals:
+                seen=set()
+                for item in prior["candidates"]:
+                    if isinstance(item,dict) and item.get("spec") is not None:
+                        seen.add(validate(item["spec"])[0])
+                if all(validate(candidate)[0] in seen for candidate in proposals):
+                    raise ValueError("Model repeated only previously evaluated strategies")
+        return raw
     # Link the model-derived candidate back to the exact parent report.
     parent_hash=hashlib.sha256(json.dumps(prior,sort_keys=True,ensure_ascii=False,allow_nan=False).encode("utf-8")).hexdigest()
     return model_research(csv_path,output_dir,propose,model_id=model_id,cost=cost,
