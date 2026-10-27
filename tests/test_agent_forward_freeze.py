@@ -33,7 +33,7 @@ class FrozenForwardResearchTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 freeze_candidate(td,{"status":"research_candidate",
                                      "selected":"trend_8_30",
-                                     "live_trading_authorized":False}))
+                                     "live_trading_authorized":False})
 
 if __name__=="__main__":
     unittest.main()
