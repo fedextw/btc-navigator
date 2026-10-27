@@ -29,6 +29,10 @@ class CycleTests(unittest.TestCase):
         self.assertEqual(a["followup_candidate_count"],len(a["candidates"])-16)
         self.assertIn("forward_test",a["selection_bias_warning"])
         self.assertFalse(a["live_trading_authorized"])
+        self.assertTrue(all("validation_stability" in c for c in a["candidates"]))
+        if a["selected"]:
+            chosen=next(c for c in a["candidates"] if c["candidate"]==a["selected"])
+            self.assertTrue(chosen["validation_stability"]["both_halves_positive"])
 
     def test_holdout_changed_does_not_change_selection(self):
         original = run_cycle(self.file)
