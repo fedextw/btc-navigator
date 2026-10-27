@@ -7,6 +7,8 @@ import argparse
 import json
 import os
 import urllib.request
+import urllib.error
+from urllib.parse import urlsplit
 from pathlib import Path
 from agent_model_feedback import research_with_feedback
 from agent_model_research import model_research
@@ -14,8 +16,9 @@ from agent_model_research import model_research
 MAX_BODY = 32768
 
 def openai_compatible_model(prompt, *, model, api_key=None, endpoint="https://api.openai.com/v1/chat/completions"):
-    if not endpoint.startswith("https://"):
-        raise ValueError("Model endpoint must use HTTPS")
+    parsed=urlsplit(endpoint)
+    if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password or parsed.fragment:
+        raise ValueError("Model endpoint must use a valid HTTPS URL")
     if not isinstance(model,str) or not model or len(model)>100:
         raise ValueError("Invalid model")
     secret=api_key if api_key is not None else os.environ.get("OPENAI_API_KEY")
@@ -32,12 +35,19 @@ def openai_compatible_model(prompt, *, model, api_key=None, endpoint="https://ap
     request=urllib.request.Request(endpoint,data=request_body,
         headers={"Authorization":"Bearer "+secret, "Content-Type":"application/json"},
         method="POST")
-    with urllib.request.urlopen(request,timeout=30) as response:
-        body=response.read(MAX_BODY+1)
+    try:
+        with urllib.request.urlopen(request,timeout=30) as response:
+            body=response.read(MAX_BODY+1)
+    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
+        # Never expose provider error payloads or authorization headers.
+        raise RuntimeError("Model request failed; no research report saved") from None
     if len(body)>MAX_BODY:
         raise ValueError("Model response too large")
-    data=json.loads(body)
-    text=data["choices"][0]["message"]["content"]
+    try:
+        data=json.loads(body)
+        text=data["choices"][0]["message"]["content"]
+    except (ValueError, KeyError, IndexError, TypeError) as exc:
+        raise ValueError("Malformed model response") from None
     if not isinstance(text,str):
         raise ValueError("Model response missing text")
     return text
