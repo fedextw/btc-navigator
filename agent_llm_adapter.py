@@ -58,7 +58,20 @@ def main():
     parser.add_argument("--out",required=True)
     parser.add_argument("--model",required=True)
     parser.add_argument("--prior",help="Previous research report, for feedback on new data")
+    parser.add_argument("--dry-run",action="store_true",help="Verify local input and configuration without contacting the model")
     args=parser.parse_args()
+    if args.dry_run:
+        from agent_csv_research import read_candles
+        candles, fingerprint=read_candles(args.csv)
+        if args.prior:
+            from agent_model_feedback import feedback_context
+            prior=json.loads(Path(args.prior).read_text(encoding="utf-8"))
+            feedback_context(prior)
+        print(json.dumps({"status":"local_inputs_validated","candles":len(candles),
+                          "dataset_sha256":fingerprint,"model_called":False,
+                          "paper_only":True,"live_trading_authorized":False},
+                         ensure_ascii=False))
+        return
     provider=lambda prompt:openai_compatible_model(prompt,model=args.model)
     if args.prior:
         prior=json.loads(Path(args.prior).read_text(encoding="utf-8"))
