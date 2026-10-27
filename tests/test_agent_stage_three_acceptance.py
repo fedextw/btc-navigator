@@ -20,7 +20,7 @@ class StageThreeAcceptanceTests(unittest.TestCase):
         doc.update(changes)
         return doc
     def save(self,doc):
-        raw=(json.dumps(doc,ensure_ascii=False,sort_keys=True,indent=2,allow_nan=False)+"\\n").encode()
+        raw=(json.dumps(doc,ensure_ascii=False,sort_keys=True,indent=2,allow_nan=False)+"\n").encode()
         name=hashlib.sha256(raw).hexdigest()+".json"
         path=self.root/name
         path.write_bytes(raw)
