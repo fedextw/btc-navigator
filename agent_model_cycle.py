@@ -55,6 +55,67 @@ def run_model_feedback_cycle(csv_path, output_dir, model_fn, *, model_id,
                 "reports":[first["report_path"],second["report_path"]],
                 "paper_only":True,"live_trading_authorized":False}
 
+def run_multigeneration_model_cycle(csv_path, output_dir, model_fn, *,
+                                    model_id, cutoffs, cost=0.0014):
+    """One bounded, paper-only research operation spanning up to four generations.
+
+    Every next validation slice must begin after the entire previous snapshot.
+    A nonqualifying generation stops the experiment; no live promotion exists.
+    Reports are independently content-addressed and never overwritten.
+    """
+    if not isinstance(cutoffs, (list, tuple)) or not 1 <= len(cutoffs) <= 4:
+        raise ValueError("Specify 1-4 generation cutoffs")
+    if any(type(c) is not int or c < 300 for c in cutoffs):
+        raise ValueError("Invalid generation cutoff")
+    if list(cutoffs) != sorted(set(cutoffs)):
+        raise ValueError("Cutoffs must be strictly increasing")
+    candles, _=read_candles(csv_path)
+    if cutoffs[-1] > len(candles):
+        raise ValueError("Cutoff exceeds available candles")
+    # Verify all future periods before incurring any model call or write.
+    for previous, following in zip(cutoffs, cutoffs[1:]):
+        if candles[int(following*.6)][0] <= candles[previous-1][0]:
+            raise ValueError("Generation validation periods overlap")
+    target=Path(output_dir)
+    if target.exists() and any(target.iterdir()):
+        raise FileExistsError("Cannot overwrite previous research")
+    paths=[]
+    previous_report=None
+    stop_reason=None
+    with tempfile.TemporaryDirectory() as temporary:
+        for generation, cutoff in enumerate(cutoffs):
+            snapshot=Path(temporary)/("generation_%d.csv"%generation)
+            with snapshot.open("w", newline="", encoding="utf-8") as handle:
+                writer=csv.writer(handle)
+                writer.writerow(("time", "open", "high", "low", "close", "volume"))
+                for candle in candles[:cutoff]:
+                    writer.writerow((candle[0].isoformat(), *candle[1:]))
+            if previous_report is None:
+                result=model_research(snapshot,target,model_fn,
+                                      model_id=model_id,cost=cost)
+            else:
+                result=research_with_feedback(snapshot,target,model_fn,
+                                              model_id=model_id,prior=previous_report,cost=cost)
+            current=json.loads(Path(result["report_path"]).read_text(encoding="utf-8"))
+            if current.get("paper_only") is not True or current.get("live_trading_authorized") is not False:
+                raise ValueError("Unsafe generated report")
+            if previous_report is not None:
+                import hashlib
+                expected=hashlib.sha256(json.dumps(previous_report,sort_keys=True,
+                                      ensure_ascii=False,allow_nan=False).encode("utf-8")).hexdigest()
+                if current.get("parent_report_sha256") != expected or current.get("model_feedback_used") is not True:
+                    raise ValueError("Broken research lineage")
+            paths.append(result["report_path"])
+            if current.get("selected") is None:
+                stop_reason="no_qualified_parent" if generation < len(cutoffs)-1 else None
+                break
+            previous_report=current
+    return {"schema":"agent-multigeneration-model-v1",
+            "requested_generations":len(cutoffs),
+            "completed_generations":len(paths),
+            "stop_reason":stop_reason,
+            "reports":paths,"paper_only":True,"live_trading_authorized":False}
+
 def resume_from_report(new_csv_path, output_dir, model_fn, *, model_id,
                        previous_report_path, cost=0.0014):
     """Explicit restart from an existing immutable first-generation report.
