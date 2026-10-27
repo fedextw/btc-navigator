@@ -38,8 +38,8 @@ class SchedulerTests(unittest.TestCase):
             stored=Path(directory)/"agent-paper-comparison-requests"
             originals={p.name:p.read_bytes() for p in stored.glob("*.json")}
             argv=["scheduler","--state-dir",directory,"--auto-universe","--once"]
-            with patch("sys.argv",argv), \\
-                 patch("agent_research_universe.next_batch",return_value=()), \\
+            with patch("sys.argv",argv), \
+                 patch("agent_research_universe.next_batch",return_value=()), \
                  patch("agent_fair_forward_comparison.compare_fresh_paper",
                        return_value={"status":"waiting_fresh_candles",
                                      "live_trading_authorized":False}):
