@@ -66,6 +66,19 @@ class FeedbackTests(unittest.TestCase):
                     model_id="stub",prior=p)
                 self.assertIn("lookback",fresh)
 
+    def test_duplicate_proposals_rejected_before_research(self):
+        p=self.baseline()
+        p["cost_fraction"]=.0014
+        p["dataset_latest_utc"]="2026-01-01T00:00:00+00:00"
+        bars=[(datetime(2026,2,1,tzinfo=timezone.utc)+timedelta(hours=i),) for i in range(400)]
+        same={"family":"trend","lookback":13,"slow":50,"rationale":"hypothesis"}
+        with patch("agent_model_feedback.read_candles",return_value=(bars,"newhash")):
+            with patch("agent_model_feedback.model_research") as downstream:
+                downstream.side_effect=lambda _,__,proposal,**kw:proposal("hypothesize")
+                with self.assertRaisesRegex(ValueError,"duplicate strategies"):
+                    research_with_feedback("new.csv","out",lambda _:json.dumps([same,same]),
+                                           model_id="stub",prior=p)
+
     def test_nan_rejected(self):
         a=self.baseline()
         a["candidates"][0]["validation"]["profit_factor"]=float("nan")
