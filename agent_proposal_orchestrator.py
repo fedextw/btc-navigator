@@ -41,8 +41,9 @@ def experiment(csv_path, cost=COST, ancestor=None, ai_proposals=None):
         if not isinstance(ai_proposals, list) or not 1 <= len(ai_proposals) <= MAX_PROPOSALS:
             raise ValueError("AI 提案數量須為 1 至 12")
         specs = ai_proposals
-        for spec in specs:
-            validate(spec)
+        identities = [validate(spec)[0] for spec in specs]
+        if len(identities) != len(set(identities)):
+            raise ValueError("AI 同一輪提案不可包含重複策略")
         lineage = None
         source = "external_ai_specifications"
     elif ancestor is None:
