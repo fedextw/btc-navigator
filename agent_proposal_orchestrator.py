@@ -42,6 +42,12 @@ def experiment(csv_path, cost=COST, ancestor=None):
     else:
         if not isinstance(ancestor, dict) or ancestor.get("schema") != "agent-orchestrator-v1":
             raise ValueError("不合法的上一代研究報告")
+        if ancestor.get("paper_only") is not True or ancestor.get("live_trading_authorized") is not False:
+            raise ValueError("上一代研究權限不安全")
+        if type(ancestor.get("cost_fraction")) not in (int, float) or ancestor["cost_fraction"] != cost:
+            raise ValueError("跨代研究成本假設不一致")
+        if not isinstance(ancestor.get("candidates"), list) or ancestor.get("candidate_count") != len(ancestor["candidates"]):
+            raise ValueError("上一代研究證據數量不一致")
         if ancestor.get("dataset_sha256") == fingerprint:
             raise ValueError("下一代研究不可重用上一代相同的資料集")
         prior_latest = ancestor.get("dataset_latest_utc")
