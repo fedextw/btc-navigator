@@ -140,6 +140,7 @@ def main():
                 # The scheduler retries missing data, checks contiguous UTC bars
                 # and records paper research; no exchange account or orders.
                 agent_command.append("--backfill-missing")
+                agent_command.append("--auto-universe")
             try:
                 agent = subprocess.Popen(agent_command, cwd=ROOT, env=environment,
                                          stdout=agent_log, stderr=subprocess.STDOUT)
