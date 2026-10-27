@@ -24,7 +24,7 @@ class CycleTests(unittest.TestCase):
     def test_deterministic_repeat_and_paper_only(self):
         a, b = run_cycle(self.file), run_cycle(self.file)
         self.assertEqual(a, b)
-        self.assertEqual(len(a["candidates"]), 6)
+        self.assertEqual(len(a["candidates"]), 16)
         self.assertFalse(a["live_trading_authorized"])
 
     def test_holdout_changed_does_not_change_selection(self):
