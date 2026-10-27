@@ -133,7 +133,7 @@ def main():
             agent_command = [sys.executable, "agent_research_scheduler.py",
                              "--state-dir", str(state.resolve()),
                              "--symbols", args.symbol, "--interval", args.interval,
-                             "--mode", "demo" if args.demo else "live", "--hours", "24",
+                             "--mode", "demo" if args.demo else "live", "--hours", "6" if not args.demo else "24",
                              "--proposal-research"]
             if not args.demo:
                 # Opt-in B+C launcher: public Binance futures candles only.
