@@ -27,8 +27,13 @@ def download_public_candles(path, *, symbol="BTCUSDT", interval="1h", count=1600
         raise FileExistsError("Research snapshot already exists")
     request=fetch if fetch is not None else urllib.request.urlopen
     rows=[]
-    # End the initial page at least one full interval in the past.\n    # This prevents selecting the actively forming candle.\n    interval_ms={"1m":60000,"5m":300000,"15m":900000,"1h":3600000,\n                 "4h":14400000,"1d":86400000}[interval]\n    now_ms=int(datetime.now(timezone.utc).timestamp()*1000)
-    end=(now_ms//interval_ms)*interval_ms-1\n    # Binance endpoint provides at most 1500 candles per response.
+    # End the initial page at least one full interval in the past.
+    # This prevents selecting the actively forming candle.
+    interval_ms={"1m":60000,"5m":300000,"15m":900000,"1h":3600000,
+                 "4h":14400000,"1d":86400000}[interval]
+    now_ms=int(datetime.now(timezone.utc).timestamp()*1000)
+    end=(now_ms//interval_ms)*interval_ms-1
+    # Binance endpoint provides at most 1500 candles per response.
     while len(rows)<count:
         size=min(1000,count-len(rows))
         query={"symbol":symbol,"interval":interval,"limit":size}
@@ -62,7 +67,8 @@ def download_public_candles(path, *, symbol="BTCUSDT", interval="1h", count=1600
     tmp=path.with_suffix(path.suffix+".tmp")
     try:
         with tmp.open("x",encoding="utf-8",newline="") as file:
-            writer=csv.writer(file,lineterminator="\n")
+            writer=csv.writer(file,lineterminator="
+")
             writer.writerow(("time","open","high","low","close","volume"))
             for open_ms,_,item in rows:
                 writer.writerow((datetime.fromtimestamp(open_ms/1000,timezone.utc).isoformat(),
