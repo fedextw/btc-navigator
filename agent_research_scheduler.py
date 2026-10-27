@@ -174,7 +174,8 @@ def main():
                         # execution, or proof of improvement.
                         requests=[x["research_recheck"] for x in
                                   result["forward_paper_review"]["items"]
-                                  if isinstance(x.get("research_recheck"),dict)]
+                                  if isinstance(x.get("research_recheck"),dict)
+                                  and x["research_recheck"].get("interval")==args.interval]
                         if requests:
                             symbol=requests[0]["symbol"]
                             result["deterioration_research"]=run_once(
