@@ -42,7 +42,7 @@ class ModelResearchTests(unittest.TestCase):
         candidate={"family":"trend","lookback":10,"slow":50,"rationale":"hypothesis"}
         def mutate_and_reply(_prompt):
             with self.data.open("a",encoding="utf-8") as file:
-                file.write("2026-02-01T00:00:00+00:00,101,102,100,101,100\\n")
+                file.write("2026-02-01T00:00:00+00:00,101,102,100,101,100\n")
             return json.dumps([candidate])
         with self.assertRaisesRegex(ValueError,"Dataset changed"):
             model_research(self.data,self.root/"rejected",mutate_and_reply,
