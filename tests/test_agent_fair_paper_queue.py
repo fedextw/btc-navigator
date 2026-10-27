@@ -24,6 +24,26 @@ class FairPaperQueueTests(unittest.TestCase):
             self.assertEqual(mock.call_count,1)
             self.assertFalse(batch["automatic_promotion_authorized"])
 
+    def test_corrupted_request_does_not_block_other_paper_checks(self):
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as td:
+            comparison={"status":"awaiting_fresh_independent_comparison",
+                        "old_strategy":"trend_8_30","new_candidate":"breakout_20",
+                        "old_historical_cutoff_utc":"2026-01-01T00:00:00+00:00",
+                        "new_research_cutoff_utc":"2026-02-01T00:00:00+00:00",
+                        "live_trading_authorized":False}
+            save_comparison_request(td,"BTCUSDT","1h",comparison)
+            folder=Path(td)/"agent-paper-comparison-requests"
+            (folder/("0"*64+".json")).write_text("{invalid",encoding="utf-8")
+            with patch("agent_fair_forward_comparison.compare_fresh_paper",
+                       return_value={"status":"waiting_fresh_candles",
+                                     "live_trading_authorized":False}):
+                result=review_comparison_requests(td,limit=2)
+            self.assertEqual(result["reviewed"],2)
+            self.assertEqual(set(x["status"] for x in result["items"]),
+                             {"review_error","waiting_fresh_candles"})
+            self.assertFalse(result["live_trading_authorized"])
+
     def test_missing_verified_cutoff_cannot_be_queued(self):
         with tempfile.TemporaryDirectory() as td:
             candidate={"status":"awaiting_fresh_independent_comparison",
