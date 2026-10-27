@@ -36,9 +36,9 @@ def save_batch_evidence(state_dir, batch_number, report):
     folder.mkdir(parents=True,exist_ok=True)
     dest=folder/(sha+".json")
     try:
-        with dest.open("x",encoding="utf-8") as out:
-            out.write(serial)
+        with dest.open("xb") as out:
+            out.write(serial.encode("utf-8"))
     except FileExistsError:
-        if dest.read_text(encoding="utf-8")!=serial:
+        if dest.read_bytes()!=serial.encode("utf-8"):
             raise RuntimeError("研究紀錄校驗失敗")
     return dest
