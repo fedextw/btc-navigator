@@ -38,6 +38,8 @@ def run_model_feedback_cycle(csv_path, output_dir, model_fn, *, model_id,
             raise ValueError("Second generation overlaps earlier research")
         first=model_research(snapshots[0],target,model_fn,model_id=model_id,cost=cost)
         prior=json.loads(Path(first["report_path"]).read_text(encoding="utf-8"))
+        if prior.get("paper_only") is not True or prior.get("live_trading_authorized") is not False:
+            raise ValueError("Unsafe first-generation report")
         if prior["selected"] is None:
             return {"schema":"agent-model-cycle-v1","completed_generations":1,
                     "stop_reason":"no_qualified_parent",
@@ -45,6 +47,9 @@ def run_model_feedback_cycle(csv_path, output_dir, model_fn, *, model_id,
                     "live_trading_authorized":False}
         second=research_with_feedback(snapshots[1],target,model_fn,model_id=model_id,
                                       prior=prior,cost=cost)
+        latest=json.loads(Path(second["report_path"]).read_text(encoding="utf-8"))
+        if latest.get("parent_report_sha256") is None or latest.get("model_feedback_used") is not True:
+            raise ValueError("Second-generation lineage evidence missing")
         return {"schema":"agent-model-cycle-v1","completed_generations":2,
                 "stop_reason":None,
                 "reports":[first["report_path"],second["report_path"]],
