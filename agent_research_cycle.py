@@ -67,9 +67,18 @@ def make_signals(bars, candidate):
             a = sum(close[i-fast:i]) / fast
             b = sum(close[i-slow:i]) / slow
             sides[i] = 1 if a > b and close[i] > a else -1 if a < b and close[i] < a else 0
-        else:
+        elif family == "breakout":
             past = close[i-fast:i]
             sides[i] = 1 if close[i] > max(past) else -1 if close[i] < min(past) else 0
+        elif family == "mean_reversion":
+            # Countertrend hypothesis: price dislocation from trailing mean.
+            # Threshold is a fixed basis-point multiple, not generated code.
+            baseline = sum(close[i-fast:i]) / fast
+            deviation = (close[i] / baseline - 1)
+            threshold = slow / 10000
+            sides[i] = -1 if deviation > threshold else 1 if deviation < -threshold else 0
+        else:
+            raise ValueError("Unknown signal family")
     return sides
 
 
