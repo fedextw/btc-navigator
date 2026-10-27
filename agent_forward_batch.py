@@ -2,14 +2,17 @@
 from pathlib import Path
 from agent_forward_observation import review_frozen_candidate
 
-def review_frozen_batch(state_dir, *, limit=3):
-    if type(limit) is not int or not 1<=limit<=5:
+def review_frozen_batch(state_dir, *, limit=3, batch_number=0):
+    if (type(limit) is not int or not 1<=limit<=5 or
+        type(batch_number) is not int or batch_number<0):
         raise ValueError("前向研究每輪上限無效")
     root=Path(state_dir)
     folder=root/"agent-frozen-paper-candidates"
     files=sorted(folder.glob("*.json")) if folder.is_dir() else []
     items=[]
-    for path in files[:limit]:
+    offset=(batch_number*limit)%len(files) if files else 0
+    selected=(files+files)[offset:offset+min(limit,len(files))]
+    for path in selected:
         try:
             result=review_frozen_candidate(root,path)
             if result.get("live_trading_authorized") is not False:
