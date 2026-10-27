@@ -36,6 +36,19 @@ class ModelResearchTests(unittest.TestCase):
             model_research(self.data,self.root/"unsafe",lambda _:json.dumps(bad),model_id="test")
         self.assertFalse((self.root/"unsafe").exists())
 
+    def test_dataset_change_during_model_call_rejects_evidence(self):
+        from agent_csv_research import read_candles
+        expected=read_candles(self.data)[1]
+        candidate={"family":"trend","lookback":10,"slow":50,"rationale":"hypothesis"}
+        def mutate_and_reply(_prompt):
+            with self.data.open("a",encoding="utf-8") as file:
+                file.write("2026-02-01T00:00:00+00:00,101,102,100,101,100\\n")
+            return json.dumps([candidate])
+        with self.assertRaisesRegex(ValueError,"Dataset changed"):
+            model_research(self.data,self.root/"rejected",mutate_and_reply,
+                           model_id="test",expected_dataset_sha256=expected)
+        self.assertFalse((self.root/"rejected").exists())
+
     def test_reject_oversized_and_malformed_responses(self):
         with self.assertRaises(ValueError):
             model_research(self.data,self.root/"huge",lambda _:"x"*16385,model_id="test")
