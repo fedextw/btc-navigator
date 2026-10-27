@@ -40,6 +40,31 @@ class BackfillTests(unittest.TestCase):
             with closing(sqlite3.connect(state/"research.sqlite3")) as db:
                 self.assertEqual(db.execute("SELECT COUNT(*) FROM candles").fetchone()[0],300)
 
+    def test_paginated_history_is_contiguous_and_repeatable(self):
+        class PagedClient:
+            def __init__(self, rows):
+                self.rows=rows
+                self.calls=[]
+            def json(self,path,params,weight):
+                self.calls.append(params.copy())
+                end=params.get("endTime",10**18)
+                return [r for r in self.rows if r[0]<=end][-500:]
+        with tempfile.TemporaryDirectory() as d:
+            state=Path(d)
+            with closing(sqlite3.connect(state/"research.sqlite3")) as db:
+                db.execute("CREATE TABLE candles(symbol TEXT,interval TEXT,mode TEXT,time TEXT PRIMARY KEY,close_time TEXT,open REAL,high REAL,low REAL,close REAL,volume REAL)")
+            start=datetime(2026,1,1,tzinfo=timezone.utc)
+            rows=[]
+            for i in range(1050):
+                t=start+timedelta(hours=i)
+                rows.append([int(t.timestamp()*1000),"100","110","90","105","3",int((t+timedelta(hours=1)).timestamp()*1000)-1])
+            client=PagedClient(rows)
+            result=backfill_once(d,"BTCUSDT",client=client,now=start+timedelta(hours=1051),pages=3)
+            self.assertEqual(result["inserted"],1050)
+            self.assertEqual(len(client.calls),3)
+            self.assertIn("endTime",client.calls[1])
+            self.assertEqual(backfill_once(d,"BTCUSDT",client=PagedClient(rows),now=start+timedelta(hours=1051),pages=3)["inserted"],0)
+
     def test_reject_invalid_prices_without_partial_writes(self):
         with tempfile.TemporaryDirectory() as d:
             state=Path(d)
