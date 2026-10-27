@@ -41,6 +41,9 @@ class FeedbackTests(unittest.TestCase):
                                                model_id="stub",prior=p)
                 self.assertTrue(result["paper_only"])
                 self.assertEqual(model.call_count,1)
+                lineage=model.call_args.kwargs["parent_report_sha256"]
+                self.assertEqual(len(lineage),64)
+                self.assertTrue(all(c in "0123456789abcdef" for c in lineage))
 
     def test_nan_rejected(self):
         a=self.baseline()
