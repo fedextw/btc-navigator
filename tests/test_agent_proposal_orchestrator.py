@@ -58,7 +58,7 @@ class OrchestrationTests(unittest.TestCase):
         with self.path.open("a", encoding="utf-8") as stream:
             # New independent future candle changes data fingerprint; this alone
             # does not prove unbiased forward validation.
-            stream.write("2026-01-17T16:00:00+00:00,125,126,124,125,100\\n")
+            stream.write("2026-01-17T16:00:00+00:00,125,126,124,125,100\n")
         next_generation=experiment(self.path, ancestor=prior)
         self.assertEqual(next_generation["source"], "validation_guided_evolution")
         self.assertIsNotNone(next_generation["parent_report_sha256"])
