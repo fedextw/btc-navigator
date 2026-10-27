@@ -181,6 +181,13 @@ def main():
                             result["deterioration_research"]=run_once(
                                 args.state_dir,(symbol,),args.interval,args.mode,
                                 proposal_runner=None,backfill_runner=None)
+                            from agent_recheck_comparison import compare_research_recheck
+                            result["deterioration_comparison"]=compare_research_recheck(
+                                args.state_dir,
+                                next(x["reference_sha256"] for x in
+                                     result["forward_paper_review"]["items"]
+                                     if x.get("research_recheck") is requests[0]),
+                                result["deterioration_research"])
                     result["phase"] = "completed"
                     if args.auto_universe:
                         result["next_batch"] = batch_number
