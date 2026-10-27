@@ -46,6 +46,19 @@ def run_once(state_dir, symbols=("BTCUSDT",), interval="1h", mode="live", runner
                     item["proposal_research"] = proposal_runner(state_dir, symbol, interval, mode)
                 except (ValueError, OSError, RuntimeError) as exc:
                     item["proposal_research"] = {"status": "skipped", "error_type": type(exc).__name__, "live_trading_authorized": False}
+            # Freeze the research cutoff before any future paper evaluation.
+            # Failed freezing cannot grant trading permission or silently
+            # relabel the underlying research as a success.
+            if mode=="live" and item.get("status")=="research_candidate":
+                from agent_forward_freeze import freeze_candidate
+                try:
+                    item=dict(item)
+                    item["forward_baseline"]=freeze_candidate(state_dir,item)
+                except (ValueError,OSError,RuntimeError) as exc:
+                    item=dict(item)
+                    item["forward_baseline"]={"status":"freeze_failed",
+                                              "error_type":type(exc).__name__,
+                                              "live_trading_authorized":False}
             output.append({"symbol":symbol,"at":started,"status":"completed",
                            "backfill":backfill_info,"result":item})
         except (ValueError, OSError, RuntimeError) as exc:
