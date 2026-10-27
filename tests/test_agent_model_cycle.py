@@ -91,7 +91,7 @@ class ModelCycleTests(unittest.TestCase):
         self.assertFalse(payload["live_trading_authorized"])
         self.assertEqual(model.call_count,1)
 
-    def test_resume_refuses_unqualified_parent_without_model_call(self):
+    def test_resume_rejected_parent_requires_fresh_validation_data(self):
         from agent_model_research import model_research
         model=lambda _:json.dumps([{"family":"trend","lookback":10,
                                      "slow":50,"rationale":"hypothesis"}])
@@ -99,7 +99,7 @@ class ModelCycleTests(unittest.TestCase):
                                       model_id="stub",first_cutoff=400,second_cutoff=1000)
         prior=first["reports"][0]
         called=[]
-        with self.assertRaisesRegex(ValueError,"qualified parent"):
+        with self.assertRaisesRegex(ValueError,"Reused prior dataset|overlaps"):
             resume_from_report(self.data,self.root/"resume",lambda x:called.append(x),
                                model_id="stub",previous_report_path=prior)
         self.assertEqual(called,[])
