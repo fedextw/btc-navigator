@@ -1,5 +1,6 @@
 import json
 import unittest
+import urllib.error
 from unittest.mock import patch
 from agent_llm_adapter import openai_compatible_model
 
@@ -28,6 +29,19 @@ class AdapterTests(unittest.TestCase):
             openai_compatible_model("ideas",model="test",api_key="")
         with self.assertRaises(ValueError):
             openai_compatible_model("ideas",model="test",api_key="secret",endpoint="http://example.com")
+    def test_provider_error_does_not_expose_key(self):
+        with patch("agent_llm_adapter.urllib.request.urlopen",
+                   side_effect=urllib.error.URLError("credential=secret-internal")):
+            with self.assertRaises(RuntimeError) as raised:
+                openai_compatible_model("ideas",model="test",api_key="secret-internal")
+        self.assertNotIn("secret-internal",str(raised.exception))
+
+    def test_malformed_response_rejected(self):
+        with patch("agent_llm_adapter.urllib.request.urlopen",
+                   return_value=FakeResponse(b'{"choices":[]}')):
+            with self.assertRaisesRegex(ValueError,"Malformed model response"):
+                openai_compatible_model("ideas",model="test",api_key="unit-test")
+
     def test_response_limit(self):
         with patch("agent_llm_adapter.urllib.request.urlopen",return_value=FakeResponse(b"x"*32769)):
             with self.assertRaises(ValueError):
