@@ -1,5 +1,7 @@
 import unittest
-from agent_model_feedback import feedback_context
+from unittest.mock import patch
+from datetime import datetime, timedelta, timezone
+from agent_model_feedback import feedback_context, research_with_feedback
 
 class FeedbackTests(unittest.TestCase):
     def baseline(self):
@@ -16,6 +18,30 @@ class FeedbackTests(unittest.TestCase):
         self.assertIn("validation_only_feedback",raw)
         self.assertNotIn("private_future",raw)
         self.assertNotIn("must never appear",raw)
+    def test_no_model_call_when_periods_overlap(self):
+        p=self.baseline()
+        p["cost_fraction"]=.0014
+        p["dataset_latest_utc"]="2026-02-01T00:00:00+00:00"
+        bars=[(datetime(2026,1,1,tzinfo=timezone.utc)+timedelta(hours=i),) for i in range(400)]
+        with patch("agent_model_feedback.read_candles",return_value=(bars,"newhash")):
+            with patch("agent_model_feedback.model_research") as model:
+                with self.assertRaisesRegex(ValueError,"overlaps"):
+                    research_with_feedback("not_read.csv","out",lambda _: "[]",
+                                           model_id="stub",prior=p)
+                model.assert_not_called()
+
+    def test_fresh_validation_permits_model_boundary(self):
+        p=self.baseline()
+        p["cost_fraction"]=.0014
+        p["dataset_latest_utc"]="2026-01-01T00:00:00+00:00"
+        bars=[(datetime(2026,2,1,tzinfo=timezone.utc)+timedelta(hours=i),) for i in range(400)]
+        with patch("agent_model_feedback.read_candles",return_value=(bars,"newhash")):
+            with patch("agent_model_feedback.model_research",return_value={"paper_only":True}) as model:
+                result=research_with_feedback("not_read.csv","out",lambda _: "[]",
+                                               model_id="stub",prior=p)
+                self.assertTrue(result["paper_only"])
+                self.assertEqual(model.call_count,1)
+
     def test_nan_rejected(self):
         a=self.baseline()
         a["candidates"][0]["validation"]["profit_factor"]=float("nan")
