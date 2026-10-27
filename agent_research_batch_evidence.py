@@ -30,7 +30,7 @@ def save_batch_evidence(state_dir, batch_number, report):
              "finished_at":report.get("finished_at"),
              "counts":report["counts"],"items":records,
              "paper_only":True,"live_trading_authorized":False}
-    serial=json.dumps(payload,ensure_ascii=False,sort_keys=True,allow_nan=False)+"\\n"
+    serial=json.dumps(payload,ensure_ascii=False,sort_keys=True,allow_nan=False)+chr(10)
     sha=hashlib.sha256(serial.encode("utf-8")).hexdigest()
     folder=Path(state_dir)/"agent-research-batches"
     folder.mkdir(parents=True,exist_ok=True)
