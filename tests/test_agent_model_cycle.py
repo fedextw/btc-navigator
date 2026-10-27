@@ -105,6 +105,23 @@ class ModelCycleTests(unittest.TestCase):
         self.assertEqual(called,[])
         self.assertFalse((self.root/"resume").exists())
 
+    def test_resume_rejected_research_on_fresh_data_succeeds(self):
+        from agent_model_research import model_research
+        proposal=lambda p:json.dumps([{"family":"trend","lookback":10 if "validation_only_feedback" not in p else 15,
+                                        "slow":50,"rationale":"bounded hypothesis"}])
+        smaller=self.root/"earlier.csv"
+        with self.data.open("r",encoding="utf-8") as reader, smaller.open("w",encoding="utf-8",newline="") as out:
+            out.writelines(reader.readlines()[:401])
+        initial=model_research(smaller,self.root/"initial",proposal,model_id="mocked")
+        prior=json.loads(Path(initial["report_path"]).read_text(encoding="utf-8"))
+        self.assertIsNone(prior["selected"])
+        resumed=resume_from_report(self.data,self.root/"resumed",proposal,model_id="mocked",
+                                   previous_report_path=initial["report_path"])
+        newer=json.loads(Path(resumed["report_path"]).read_text(encoding="utf-8"))
+        self.assertTrue(newer["model_feedback_used"])
+        self.assertIsNotNone(newer["parent_report_sha256"])
+        self.assertFalse(resumed["live_trading_authorized"])
+
     def test_resume_rejects_tampered_report(self):
         bad=self.root/"modified.json"
         bad.write_text('{"selected":"fake"}',encoding="utf-8")
