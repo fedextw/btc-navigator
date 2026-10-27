@@ -68,6 +68,30 @@ class AdapterTests(unittest.TestCase):
             self.assertFalse(result["model_called"])
             self.assertFalse(result["live_trading_authorized"])
 
+    def test_dry_run_rejects_overlapping_prior_without_model_call(self):
+        with tempfile.TemporaryDirectory() as d:
+            path=Path(d)/"candles.csv"
+            start=datetime(2026,1,1,tzinfo=timezone.utc)
+            with path.open("w",newline="",encoding="utf-8") as file:
+                writer=csv.writer(file)
+                writer.writerow(("time","open","high","low","close","volume"))
+                for i in range(400):
+                    p=100+i*.01
+                    writer.writerow(((start+timedelta(hours=i)).isoformat(),p,p+1,p-1,p,100))
+            prior={"schema":"agent-orchestrator-v1","paper_only":True,
+                   "live_trading_authorized":False,"candidate_count":0,
+                   "candidates":[],"cost_fraction":.0014,
+                   "dataset_sha256":"a"*64,
+                   "dataset_latest_utc":"2026-02-01T00:00:00+00:00"}
+            prior_path=Path(d)/"prior.json"
+            prior_path.write_text(json.dumps(prior),encoding="utf-8")
+            with patch("sys.argv",["adapter",str(path),"--out",d,"--model","test",
+                                   "--dry-run","--prior",str(prior_path)]):
+                with patch("agent_llm_adapter.openai_compatible_model") as model:
+                    with self.assertRaisesRegex(ValueError,"overlaps"):
+                        main()
+                    model.assert_not_called()
+
     def test_response_limit(self):
         with patch("agent_llm_adapter.urllib.request.urlopen",return_value=FakeResponse(b"x"*32769)):
             with self.assertRaises(ValueError):
