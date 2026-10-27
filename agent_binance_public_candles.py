@@ -67,8 +67,7 @@ def download_public_candles(path, *, symbol="BTCUSDT", interval="1h", count=1600
     tmp=path.with_suffix(path.suffix+".tmp")
     try:
         with tmp.open("x",encoding="utf-8",newline="") as file:
-            writer=csv.writer(file,lineterminator="
-")
+            writer=csv.writer(file,lineterminator="\n")
             writer.writerow(("time","open","high","low","close","volume"))
             for open_ms,_,item in rows:
                 writer.writerow((datetime.fromtimestamp(open_ms/1000,timezone.utc).isoformat(),
