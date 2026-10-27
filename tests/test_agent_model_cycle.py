@@ -1,11 +1,13 @@
 import csv
+import io
+from contextlib import redirect_stdout
 import json
 import tempfile
 import unittest
 from pathlib import Path
 from datetime import datetime,timedelta,timezone
 from unittest.mock import patch
-from agent_model_cycle import run_model_feedback_cycle, resume_from_report
+from agent_model_cycle import run_model_feedback_cycle, resume_from_report, main
 
 class ModelCycleTests(unittest.TestCase):
     def setUp(self):
@@ -46,6 +48,20 @@ class ModelCycleTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,"Unsafe"):
                 run_model_feedback_cycle(self.data,self.root/"unsafe",model,
                     model_id="test-stub",first_cutoff=400,second_cutoff=1000)
+
+    def test_cli_executes_cycle_without_real_model_credentials(self):
+        spec={"family":"trend","lookback":10,"slow":50,"rationale":"research hypothesis"}
+        argv=["cycle",str(self.data),"--out",str(self.root/"cli"),
+              "--model","mocked-model","--first-cutoff","400","--second-cutoff","1000"]
+        with patch("sys.argv",argv):
+            with patch("agent_llm_adapter.openai_compatible_model",
+                       return_value=json.dumps([spec])) as model:
+                with redirect_stdout(io.StringIO()) as result:
+                    main()
+        payload=json.loads(result.getvalue())
+        self.assertEqual(payload["completed_generations"],1)
+        self.assertFalse(payload["live_trading_authorized"])
+        self.assertEqual(model.call_count,1)
 
     def test_resume_refuses_unqualified_parent_without_model_call(self):
         from agent_model_research import model_research
