@@ -37,7 +37,8 @@ def feedback_context(prior):
     return {"source":"validation_only_feedback","prior_dataset_sha256":prior.get("dataset_sha256"),
             "candidates":summary,"instruction":"Propose a *hypothesis* for independently verified new data; no code or trade instructions."}
 
-def research_with_feedback(csv_path,output_dir,model_fn,*,model_id,prior,cost=0.0014):
+def check_feedback_readiness(csv_path, prior, cost=0.0014):
+    """Use the identical evidence checks for dry-run and real model research."""
     context=feedback_context(prior)
     if type(prior.get("cost_fraction")) not in (int, float) or prior["cost_fraction"] != cost:
         raise ValueError("Cross-generation fee assumptions must match")
@@ -56,6 +57,13 @@ def research_with_feedback(csv_path,output_dir,model_fn,*,model_id,prior,cost=0.
     validation_start=candles[int(len(candles)*.6)][0]
     if validation_start <= cutoff:
         raise ValueError("Validation window overlaps prior research")
+    return {"dataset_sha256":dataset_hash, "candles":len(candles),
+            "validation_start_utc":validation_start.isoformat(),
+            "parent_latest_utc":cutoff.isoformat()}
+
+def research_with_feedback(csv_path,output_dir,model_fn,*,model_id,prior,cost=0.0014):
+    check_feedback_readiness(csv_path, prior, cost)
+    context=feedback_context(prior)
     def propose(prompt):
         raw = model_fn(json.dumps(context,sort_keys=True,ensure_ascii=False)+"\\n"+prompt)
         # The next generation must include a previously untested specification.
