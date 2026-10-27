@@ -7,6 +7,7 @@ LLM can suggest specs through the same constrained interface, not run code.
 import argparse
 import hashlib
 import json
+from datetime import datetime
 from pathlib import Path
 
 from agent_csv_research import read_candles, evaluate, COST
@@ -43,6 +44,17 @@ def experiment(csv_path, cost=COST, ancestor=None):
             raise ValueError("不合法的上一代研究報告")
         if ancestor.get("dataset_sha256") == fingerprint:
             raise ValueError("下一代研究不可重用上一代相同的資料集")
+        prior_latest = ancestor.get("dataset_latest_utc")
+        if not isinstance(prior_latest, str):
+            raise ValueError("上一代缺少資料截止時間，無法證明跨代獨立")
+        try:
+            cutoff = datetime.fromisoformat(prior_latest)
+        except ValueError as exc:
+            raise ValueError("上一代截止時間格式錯誤") from exc
+        if cutoff.tzinfo is None or cutoff.utcoffset().total_seconds() != 0:
+            raise ValueError("上一代截止時間必須為 UTC")
+        if bars[start][0] <= cutoff:
+            raise ValueError("下一代驗證期間與上一代資料重疊")
         lineage = evolve(ancestor)
         specs = lineage["proposals"]
         source = "validation_guided_evolution"
@@ -66,6 +78,8 @@ def experiment(csv_path, cost=COST, ancestor=None):
         "schema": "agent-orchestrator-v1", "source": source,
         "parent_report_sha256": lineage["parent_report_sha256"] if lineage else None,
         "dataset_sha256": fingerprint, "cost_fraction": cost,
+        "dataset_latest_utc": bars[-1][0].isoformat(),
+        "validation_start_utc": bars[start][0].isoformat(),
         "candidate_count": len(results), "candidates": results,
         "selected": selected["strategy"] if selected else None,
         "status": "awaiting_new_holdout_and_forward_test" if selected else "no_qualified_candidate",
