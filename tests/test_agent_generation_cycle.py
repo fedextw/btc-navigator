@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 from agent_generation_cycle import run_generations
 
@@ -42,6 +43,19 @@ class GenerationCycleTests(unittest.TestCase):
         run_generations(self.csv,output,[400])
         with self.assertRaises(FileExistsError):
             run_generations(self.csv,output,[400])
+
+    def test_no_qualified_parent_stops_before_second_generation(self):
+        output=self.root/"stopped"
+        fake={"schema":"agent-orchestrator-v1","selected":None,
+              "source":"pre_registered_parameter_grammar",
+              "paper_only":True,"live_trading_authorized":False}
+        with patch("agent_generation_cycle.experiment", return_value=fake) as runner:
+            result=run_generations(self.csv,output,[400,1000])
+        self.assertEqual(runner.call_count,1)
+        self.assertEqual(result["generations"],1)
+        self.assertEqual(result["requested_generations"],2)
+        self.assertEqual(result["stop_reason"],"no_qualified_parent_for_next_generation")
+        self.assertFalse(result["live_trading_authorized"])
 
     def test_bounded_generations(self):
         with self.assertRaises(ValueError):
