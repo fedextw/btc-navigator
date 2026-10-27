@@ -31,6 +31,22 @@ class ModelCycleTests(unittest.TestCase):
         self.assertEqual(answer["stop_reason"],"no_qualified_parent")
         self.assertEqual(len(calls),1)
         self.assertFalse(answer["live_trading_authorized"])
+    def test_unsafe_first_generation_report_is_rejected(self):
+        model=lambda prompt:json.dumps([{"family":"trend","lookback":10,"slow":50,
+                                         "rationale":"hypothesis"}])
+        from agent_model_cycle import model_research as actual
+        def tampered(*args,**kwargs):
+            result=actual(*args,**kwargs)
+            data=json.loads(Path(result["report_path"]).read_text(encoding="utf-8"))
+            data["live_trading_authorized"]=True
+            corrupted=self.root/"tampered.json"
+            corrupted.write_text(json.dumps(data),encoding="utf-8")
+            return dict(result,report_path=str(corrupted))
+        with patch("agent_model_cycle.model_research",side_effect=tampered):
+            with self.assertRaisesRegex(ValueError,"Unsafe"):
+                run_model_feedback_cycle(self.data,self.root/"unsafe",model,
+                    model_id="test-stub",first_cutoff=400,second_cutoff=1000)
+
     def test_overlap_rejected_before_model_call(self):
         calls=[]
         with self.assertRaisesRegex(ValueError,"overlaps"):
