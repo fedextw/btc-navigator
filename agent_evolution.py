@@ -5,6 +5,7 @@ arbitrary code, API keys, or trading privileges. This is not an LLM.
 """
 import hashlib
 import json
+import math
 from agent_strategy_proposals import validate
 
 MAX_PARENTS = 24
@@ -39,12 +40,16 @@ def evolve(previous_report):
         if any(type(metrics.get(k)) not in (int, float) for k in
                ("net_expectancy_r", "max_drawdown_pct", "trades")):
             raise ValueError("Missing validation evidence")
+        if not all(math.isfinite(metrics[k]) for k in ("net_expectancy_r", "max_drawdown_pct", "trades")):
+            raise ValueError("Non-finite validation evidence")
         if not (-10000 <= metrics["net_expectancy_r"] <= 10000
                 and 0 <= metrics["max_drawdown_pct"] <= 100
                 and 0 <= metrics["trades"] <= 10000):
             raise ValueError("Out-of-range evidence")
-        ranked.append((metrics["net_expectancy_r"] - max(0, metrics["max_drawdown_pct"]) * .01,
-                       metrics["trades"], spec))
+        # No minimum-evidence strategy may silently become an evolution parent.
+        if diagnose(metrics) == "requires_independent_replication":
+            ranked.append((metrics["net_expectancy_r"] - max(0, metrics["max_drawdown_pct"]) * .01,
+                           metrics["trades"], spec))
     ranked.sort(key=lambda item: (-item[0], -item[1], item[2]["family"], item[2]["lookback"]))
     diagnostics = [{"strategy": validate(item["spec"])[0],
                     "reason": diagnose(item["validation"])}
@@ -71,6 +76,6 @@ def evolve(previous_report):
     return {"schema": "agent-evolution-proposals-v1", "source": "validation_guided_evolution",
             "parent_report_sha256": ancestor_hash, "proposals": children,
             "validation_diagnostics": diagnostics,
-            "status": "requires_fresh_validation", "paper_only": True,
+            "status": "requires_fresh_validation" if children else "no_qualified_parents", "paper_only": True,
             "live_trading_authorized": False,
             "note": "不得使用 holdout 或前向結果挑選下一代；不得自動晉升或下單"}
