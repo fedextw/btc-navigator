@@ -110,7 +110,8 @@ def main():
     from agent_single_instance import research_lock, AlreadyRunning
     try:
         with research_lock(args.state_dir):
-            batch_number = 0
+            from agent_research_cursor import read_cursor,save_cursor,fully_completed
+            batch_number = read_cursor(args.state_dir) if args.auto_universe else 0
             while True:
                 started_at = datetime.now(timezone.utc).isoformat()
                 write_status(args.state_dir, {
@@ -132,8 +133,9 @@ def main():
                         result = run_once(args.state_dir,current_symbols,args.interval,args.mode,
                                           proposal_runner=proposal_runner,
                                           backfill_runner=backfill_runner)
-                        if args.auto_universe:
+                        if args.auto_universe and fully_completed(result):
                             batch_number += 1
+                            save_cursor(args.state_dir,batch_number)
                     result["phase"] = "completed"
                     result["started_at"] = started_at
                 except Exception as exc:
