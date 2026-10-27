@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from datetime import datetime,timedelta,timezone
 from unittest.mock import patch
-from agent_model_cycle import run_model_feedback_cycle
+from agent_model_cycle import run_model_feedback_cycle, resume_from_report
 
 class ModelCycleTests(unittest.TestCase):
     def setUp(self):
@@ -46,6 +46,27 @@ class ModelCycleTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,"Unsafe"):
                 run_model_feedback_cycle(self.data,self.root/"unsafe",model,
                     model_id="test-stub",first_cutoff=400,second_cutoff=1000)
+
+    def test_resume_refuses_unqualified_parent_without_model_call(self):
+        from agent_model_research import model_research
+        model=lambda _:json.dumps([{"family":"trend","lookback":10,
+                                     "slow":50,"rationale":"hypothesis"}])
+        first=run_model_feedback_cycle(self.data,self.root/"first",model,
+                                      model_id="stub",first_cutoff=400,second_cutoff=1000)
+        prior=first["reports"][0]
+        called=[]
+        with self.assertRaisesRegex(ValueError,"qualified parent"):
+            resume_from_report(self.data,self.root/"resume",lambda x:called.append(x),
+                               model_id="stub",previous_report_path=prior)
+        self.assertEqual(called,[])
+        self.assertFalse((self.root/"resume").exists())
+
+    def test_resume_rejects_tampered_report(self):
+        bad=self.root/"modified.json"
+        bad.write_text('{"selected":"fake"}',encoding="utf-8")
+        with self.assertRaisesRegex(ValueError,"content-addressed"):
+            resume_from_report(self.data,self.root/"unused",lambda _:"[]",
+                               model_id="stub",previous_report_path=bad)
 
     def test_overlap_rejected_before_model_call(self):
         calls=[]
