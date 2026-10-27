@@ -23,7 +23,7 @@ def history_from_database(db_path, symbol, interval, mode):
         # Explicit column selection and bound parameters; never writes to the live database.
         rows = db.execute(
             "SELECT time,open,high,low,close,volume FROM candles "
-            "WHERE symbol=? AND interval=? AND mode=? ORDER BY time DESC LIMIT 5000",
+            "WHERE symbol=? AND interval=? AND mode=? ORDER BY time DESC LIMIT 10000",
             (symbol, interval, mode)).fetchall()
     rows.reverse()
     if len(rows) < 300:
