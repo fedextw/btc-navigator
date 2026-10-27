@@ -30,12 +30,22 @@ def propose():
     return specs
 
 
-def experiment(csv_path, cost=COST, ancestor=None):
+def experiment(csv_path, cost=COST, ancestor=None, ai_proposals=None):
     if not 0 <= cost <= .1:
         raise ValueError("交易成本參數無效")
     bars, fingerprint = read_candles(csv_path)
     start, end = int(len(bars)*.6), int(len(bars)*.8)
-    if ancestor is None:
+    if ai_proposals is not None:
+        if ancestor is not None:
+            raise ValueError("AI 提案與既有跨代進化不可在同一輪混用")
+        if not isinstance(ai_proposals, list) or not 1 <= len(ai_proposals) <= MAX_PROPOSALS:
+            raise ValueError("AI 提案數量須為 1 至 12")
+        specs = ai_proposals
+        for spec in specs:
+            validate(spec)
+        lineage = None
+        source = "external_ai_specifications"
+    elif ancestor is None:
         specs = propose()
         lineage = None
         source = "pre_registered_parameter_grammar"
@@ -83,6 +93,7 @@ def experiment(csv_path, cost=COST, ancestor=None):
     return {
         "schema": "agent-orchestrator-v1", "source": source,
         "parent_report_sha256": lineage["parent_report_sha256"] if lineage else None,
+        "external_proposals_sha256": hashlib.sha256(json.dumps(specs,sort_keys=True,ensure_ascii=False,allow_nan=False).encode()).hexdigest() if ai_proposals is not None else None,
         "dataset_sha256": fingerprint, "cost_fraction": cost,
         "dataset_latest_utc": bars[-1][0].isoformat(),
         "validation_start_utc": bars[start][0].isoformat(),
@@ -90,7 +101,7 @@ def experiment(csv_path, cost=COST, ancestor=None):
         "selected": selected["strategy"] if selected else None,
         "status": "awaiting_new_holdout_and_forward_test" if selected else "no_qualified_candidate",
         "paper_only": True, "live_trading_authorized": False,
-        "note": "此工具不使用 LLM、不自行產生任意程式碼、未讀取保留測試區間，也不更改任何既有策略或交易訊號。",
+        "note": "只研究受控策略規格；可接收外部 AI 提案但不自行呼叫 LLM、不執行策略程式碼、不碰保留區間及真實訂單。",
     }
 
 
@@ -114,9 +125,11 @@ def main():
     p.add_argument("csv")
     p.add_argument("--out", default=".local-state/agent-proposals")
     p.add_argument("--ancestor", help="上一代研究 JSON；使用不同資料集進行下一代驗證")
+    p.add_argument("--ai-proposals", help="外部 AI 所提出的策略規格 JSON 陣列；僅支援受控策略家族")
     args = p.parse_args()
     ancestor = json.loads(Path(args.ancestor).read_text(encoding="utf-8")) if args.ancestor else None
-    report = experiment(args.csv, ancestor=ancestor)
+    proposals = json.loads(Path(args.ai_proposals).read_text(encoding="utf-8")) if args.ai_proposals else None
+    report = experiment(args.csv, ancestor=ancestor, ai_proposals=proposals)
     path = save_report(report, args.out)
     print(json.dumps({"saved": str(path), "selected": report["selected"],
                       "status": report["status"]}, ensure_ascii=False))
