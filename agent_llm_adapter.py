@@ -56,13 +56,17 @@ def openai_compatible_model(prompt, *, model, api_key=None, endpoint="https://ap
         raise ValueError("OPENAI_API_KEY is required for model calls")
     if not isinstance(prompt,str) or len(prompt.encode("utf-8"))>12000:
         raise ValueError("Prompt too large")
-    request_body=json.dumps({
-        "model":model, "temperature":0,
+    payload={
+        "model":model,
         "response_format": PROPOSAL_FORMAT,
         "messages":[
             {"role":"system","content":"Return a JSON object with proposals containing 1-12 strategies. Each strategy has exactly family, lookback, slow, rationale. For trend use lookback 5-60 and slow at least lookback+5 up to 160; for breakout use lookback 5-60 and slow 0; for mean_reversion use lookback 5-60 and slow 5-100 basis points. No code, tools or orders."},
             {"role":"user","content":prompt}
-        ]},ensure_ascii=False).encode("utf-8")
+        ]}
+    # Newer reasoning families may not accept explicit temperature=0.
+    if not model.startswith("gpt-5"):
+        payload["temperature"]=0
+    request_body=json.dumps(payload,ensure_ascii=False).encode("utf-8")
     request=urllib.request.Request(endpoint,data=request_body,
         headers={"Authorization":"Bearer "+secret, "Content-Type":"application/json"},
         method="POST")
