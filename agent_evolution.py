@@ -10,6 +10,16 @@ from agent_strategy_proposals import validate
 MAX_PARENTS = 24
 MAX_CHILDREN = 12
 
+def diagnose(metrics):
+    """Interpret validation-only evidence; diagnostics are hypotheses, not causal proof."""
+    if metrics["trades"] < 5:
+        return "insufficient_samples"
+    if metrics["max_drawdown_pct"] >= 15:
+        return "excess_drawdown"
+    if metrics["net_expectancy_r"] <= 0:
+        return "nonpositive_net_expectancy"
+    return "requires_independent_replication"
+
 def evolve(previous_report):
     if not isinstance(previous_report, dict) or not isinstance(previous_report.get("candidates"), list):
         raise ValueError("Invalid ancestor report")
@@ -29,19 +39,25 @@ def evolve(previous_report):
         if any(type(metrics.get(k)) not in (int, float) for k in
                ("net_expectancy_r", "max_drawdown_pct", "trades")):
             raise ValueError("Missing validation evidence")
-        if not all(-10000 <= metrics[k] <= 10000 for k in
-                   ("net_expectancy_r", "max_drawdown_pct", "trades")):
+        if not (-10000 <= metrics["net_expectancy_r"] <= 10000
+                and 0 <= metrics["max_drawdown_pct"] <= 100
+                and 0 <= metrics["trades"] <= 10000):
             raise ValueError("Out-of-range evidence")
         ranked.append((metrics["net_expectancy_r"] - max(0, metrics["max_drawdown_pct"]) * .01,
                        metrics["trades"], spec))
     ranked.sort(key=lambda item: (-item[0], -item[1], item[2]["family"], item[2]["lookback"]))
+    diagnostics = [{"strategy": validate(item["spec"])[0],
+                    "reason": diagnose(item["validation"])}
+                   for item in previous_report["candidates"]]
     children, seen = [], set()
     for _, _, parent in ranked[:4]:
+        parent_name = validate(parent)[0]
+        failure = next(x["reason"] for x in diagnostics if x["strategy"] == parent_name)
         for delta in (-3, 3):
             fast = parent["lookback"] + delta
             slow = parent["slow"] + 2 * delta if parent["family"] == "trend" else 0
             child = {"family": parent["family"], "lookback": fast, "slow": slow,
-                     "rationale": "由上一代驗證證據提出局部參數變異；須重新獨立驗證"}
+                     "rationale": "上一代診斷：" + failure + "；局部參數變異仍須獨立驗證"}
             try:
                 validate(child)
             except ValueError:
@@ -54,6 +70,7 @@ def evolve(previous_report):
                 break
     return {"schema": "agent-evolution-proposals-v1", "source": "validation_guided_evolution",
             "parent_report_sha256": ancestor_hash, "proposals": children,
+            "validation_diagnostics": diagnostics,
             "status": "requires_fresh_validation", "paper_only": True,
             "live_trading_authorized": False,
             "note": "不得使用 holdout 或前向結果挑選下一代；不得自動晉升或下單"}
