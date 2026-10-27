@@ -23,6 +23,7 @@ class LongHistoryResearchTests(unittest.TestCase):
                                  (t+timedelta(hours=1)-timedelta(milliseconds=1)).isoformat(),
                                  100.,105.,95.,101.,20.))
                 db.executemany("INSERT INTO candles VALUES (?,?,?,?,?,?,?,?,?,?)",rows)
+                db.commit()
             bars=history_from_database(dbpath,"BTCUSDT","1h","live")
             self.assertEqual(len(bars),8760)
             sample={"selected":None,"paper_status":"rejected","reason":"test",
