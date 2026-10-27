@@ -68,6 +68,17 @@ class OrchestrationTests(unittest.TestCase):
         self.assertFalse(next_generation["live_trading_authorized"])
         self.assertLessEqual(next_generation["candidate_count"], 12)
 
+    def test_reject_unsafe_ancestor_and_changed_cost(self):
+        prior=experiment(self.path)
+        unsafe=dict(prior, live_trading_authorized=True)
+        with self.assertRaisesRegex(ValueError,"權限"):
+            experiment(self.path,ancestor=unsafe)
+        with self.assertRaisesRegex(ValueError,"成本"):
+            experiment(self.path,cost=.002,ancestor=prior)
+        malformed=dict(prior,candidate_count=999)
+        with self.assertRaisesRegex(ValueError,"數量"):
+            experiment(self.path,ancestor=malformed)
+
     def test_evolution_rejects_untrusted_ancestor(self):
         with self.assertRaises(ValueError):
             experiment(self.path, ancestor={"schema":"unknown"})
