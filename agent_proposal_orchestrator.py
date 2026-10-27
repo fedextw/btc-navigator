@@ -113,7 +113,7 @@ def save_report(result, output_dir):
     directory.mkdir(parents=True, exist_ok=True)
     path = directory / (identity + ".json")
     try:
-        with path.open("x", encoding="utf-8") as f:
+        with path.open("x", encoding="utf-8", newline="\n") as f:
             f.write(data)
     except FileExistsError:
         if path.read_text(encoding="utf-8") != data:
