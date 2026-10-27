@@ -3,6 +3,7 @@ import tempfile
 import unittest
 from datetime import datetime,timezone,timedelta
 from pathlib import Path
+from unittest.mock import patch
 from agent_stage_three_trial import run_stage_three_trial
 from agent_binance_public_candles import download_public_candles
 
@@ -45,6 +46,25 @@ class PublicResearchTrialTests(unittest.TestCase):
         self.assertFalse(report["acceptance"]["accepted"])
         self.assertFalse(report["live_trading_authorized"])
         self.assertTrue((self.root/"trial"/"trial_summary.json").exists())
+    def test_live_provider_path_requires_successful_two_generation_calls(self):
+        calls=[]
+        def fake_api(prompt, *, model):
+            calls.append((prompt,model))
+            return json.dumps([{"family":"mean_reversion","lookback":10+len(calls),
+                                "slow":20,"rationale":"controlled hypothesis"}])
+        with patch("agent_stage_three_trial.openai_compatible_model",side_effect=fake_api):
+            report=run_stage_three_trial(self.root/"real_path",count=1600,fetch=self.fetch)
+        self.assertEqual(len(calls),2)
+        self.assertTrue(report["provider_verified_by_live_calls"])
+        self.assertTrue(report["acceptance"]["accepted"])
+        self.assertFalse(report["live_trading_authorized"])
+    def test_injected_stub_never_claims_real_provider(self):
+        def fake(prompt):
+            return json.dumps([{"family":"mean_reversion","lookback":10,
+                                "slow":20,"rationale":"controlled hypothesis"}])
+        # Second generation repeats same identity; rejection still must not attest.
+        with self.assertRaises(ValueError):
+            run_stage_three_trial(self.root/"stub",count=1600,fetch=self.fetch,propose=fake)
     def test_rejects_reusing_existing_trial_location(self):
         (self.root/"existing").mkdir()
         (self.root/"existing"/"prior.txt").write_text("evidence")
