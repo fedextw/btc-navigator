@@ -1,5 +1,6 @@
 """Regression: expanded historical dataset reaches the existing paper research engine."""
 import sqlite3
+from contextlib import closing
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -12,7 +13,7 @@ class LongHistoryResearchTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder)
             dbpath=root/"research.sqlite3"
-            with sqlite3.connect(dbpath) as db:
+            with closing(sqlite3.connect(dbpath)) as db:
                 db.execute("CREATE TABLE candles (symbol TEXT, interval TEXT, mode TEXT, time TEXT, close_time TEXT, open REAL, high REAL, low REAL, close REAL, volume REAL)")
                 start=datetime(2025,1,1,tzinfo=timezone.utc)
                 rows=[]
