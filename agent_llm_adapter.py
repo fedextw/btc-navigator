@@ -29,7 +29,7 @@ PROPOSAL_FORMAT = {
                     "items": {
                         "type": "object",
                         "properties": {
-                            "family": {"type": "string", "enum": ["trend", "breakout"]},
+                            "family": {"type": "string", "enum": ["trend", "breakout", "mean_reversion"]},
                             "lookback": {"type": "integer"},
                             "slow": {"type": "integer"},
                             "rationale": {"type": "string"}
@@ -60,7 +60,7 @@ def openai_compatible_model(prompt, *, model, api_key=None, endpoint="https://ap
         "model":model, "temperature":0,
         "response_format": PROPOSAL_FORMAT,
         "messages":[
-            {"role":"system","content":"Return a JSON object with proposals containing 1-12 strategies. Each strategy has exactly family, lookback, slow, rationale. For trend use lookback 5-60 and slow at least lookback+5 up to 160; for breakout use lookback 5-60 and slow 0. No code, tools or orders."},
+            {"role":"system","content":"Return a JSON object with proposals containing 1-12 strategies. Each strategy has exactly family, lookback, slow, rationale. For trend use lookback 5-60 and slow at least lookback+5 up to 160; for breakout use lookback 5-60 and slow 0; for mean_reversion use lookback 5-60 and slow 5-100 basis points. No code, tools or orders."},
             {"role":"user","content":prompt}
         ]},ensure_ascii=False).encode("utf-8")
     request=urllib.request.Request(endpoint,data=request_body,
