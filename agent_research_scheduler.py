@@ -112,6 +112,7 @@ def main():
         with research_lock(args.state_dir):
             from agent_research_cursor import read_cursor,save_cursor,fully_completed,failed_symbols
             from agent_research_pending import load_pending,save_pending,clear_pending
+            from agent_research_batch_evidence import save_batch_evidence
             batch_number = read_cursor(args.state_dir) if args.auto_universe else 0
             while True:
                 started_at = datetime.now(timezone.utc).isoformat()
@@ -135,6 +136,7 @@ def main():
                                           proposal_runner=proposal_runner,
                                           backfill_runner=backfill_runner)
                         if args.auto_universe:
+                            save_batch_evidence(args.state_dir,batch_number,result)
                             if fully_completed(result):
                                 # Clear completed retries first; on crash, a
                                 # repeated safe batch is better than a stale
