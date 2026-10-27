@@ -70,7 +70,10 @@ def research_with_feedback(csv_path,output_dir,model_fn,*,model_id,prior,cost=0.
                 for item in prior["candidates"]:
                     if isinstance(item,dict) and item.get("spec") is not None:
                         seen.add(validate(item["spec"])[0])
-                if all(validate(candidate)[0] in seen for candidate in proposals):
+                identities=[validate(candidate)[0] for candidate in proposals]
+                if len(identities) != len(set(identities)):
+                    raise ValueError("Model proposed duplicate strategies within one generation")
+                if all(identity in seen for identity in identities):
                     raise ValueError("Model repeated only previously evaluated strategies")
         return raw
     # Link the model-derived candidate back to the exact parent report.
