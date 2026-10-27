@@ -28,7 +28,7 @@ def model_research(csv_path, output_dir, propose_fn, *, model_id, cost=0.0014, p
         if actual_fingerprint != expected_dataset_sha256:
             raise ValueError("Dataset changed before model invocation")
     response = propose_fn(
-        "Return a JSON array of 1-12 bounded trend/breakout candidate "
+        "Return a JSON array of 1-12 bounded trend/breakout/mean_reversion candidate "
         "specifications with family, lookback, slow and rationale. "
         "No code, no executable expressions, no trading actions."
     )
