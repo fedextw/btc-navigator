@@ -79,6 +79,25 @@ class OrchestrationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"數量"):
             experiment(self.path,ancestor=malformed)
 
+    def test_external_ai_specifications_are_bounded_and_auditable(self):
+        proposal={"family":"trend","lookback":10,"slow":50,"rationale":"external hypothesis"}
+        result=experiment(self.path, ai_proposals=[proposal])
+        self.assertEqual(result["source"],"external_ai_specifications")
+        self.assertEqual(result["candidate_count"],1)
+        self.assertEqual(len(result["external_proposals_sha256"]),64)
+        self.assertFalse(result["live_trading_authorized"])
+        self.assertEqual(result, experiment(self.path, ai_proposals=[proposal]))
+
+    def test_external_ai_proposals_reject_untrusted_strategy_code(self):
+        bad={"family":"python_exec","lookback":10,"slow":50,"rationale":"unsafe"}
+        with self.assertRaises(ValueError):
+            experiment(self.path, ai_proposals=[bad])
+        with self.assertRaises(ValueError):
+            experiment(self.path, ai_proposals=[])
+        with self.assertRaises(ValueError):
+            experiment(self.path, ai_proposals=[{"family":"trend","lookback":10,"slow":50,"rationale":"ok"}],
+                       ancestor=experiment(self.path))
+
     def test_evolution_rejects_untrusted_ancestor(self):
         with self.assertRaises(ValueError):
             experiment(self.path, ancestor={"schema":"unknown"})
