@@ -36,12 +36,12 @@ class PublicResearchTrialTests(unittest.TestCase):
         calls=[]
         def model(prompt):
             calls.append(prompt)
-            return json.dumps([{"family":"trend","lookback":10,"slow":50,
+            return json.dumps([{"family":"trend","lookback":10+len(calls),"slow":50,
                                 "rationale":"offline bounded hypothesis"}])
         report=run_stage_three_trial(self.root/"trial",count=1600,fetch=self.fetch,propose=model)
         self.assertEqual(report["market"]["candles"],1600)
-        self.assertEqual(report["research"]["completed_generations"],1)
-        self.assertEqual(len(calls),1)
+        self.assertEqual(report["research"]["completed_generations"],2)
+        self.assertEqual(len(calls),2)
         self.assertFalse(report["acceptance"]["accepted"])
         self.assertFalse(report["live_trading_authorized"])
         self.assertTrue((self.root/"trial"/"trial_summary.json").exists())
