@@ -18,7 +18,7 @@ INTERVALS={"1m","5m","15m","1h","4h","1d"}
 
 def download_public_candles(path, *, symbol="BTCUSDT", interval="1h", count=1600,
                             fetch=None):
-    if not isinstance(symbol,str) or not re.fullmatch(r"[A-Z0-9]{4,25}USDT",symbol):
+    if not isinstance(symbol,str) or not re.fullmatch(r"[A-Z0-9]{2,25}USDT",symbol):
         raise ValueError("Invalid USDT perpetual symbol")
     if interval not in INTERVALS or type(count) is not int or not 300 <= count <= 3000:
         raise ValueError("Invalid candle interval or bounded count")
