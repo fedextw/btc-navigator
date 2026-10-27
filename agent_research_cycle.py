@@ -93,11 +93,29 @@ def run_cycle(csv_path, *, cost=COST):
         comparisons.append({"candidate":candidate[0],
                             "validation":{k:v for k,v in outcomes.items()
                                           if k!="trades_detail"}})
-    # Minimum 5 validation trades; otherwise no selection and no holdout peek.
-    valid = [c for c in comparisons if c["validation"]["trades"] >= 5]
+    # Evaluate validation-period stability in two chronological, disjoint
+    # windows. This is still development data; neither window is a fresh
+    # prospective test and the held-out partition remains untouched.
+    midpoint = (val_start + test_start) // 2
+    for entry in comparisons:
+        candidate = next(c for c in (*CANDIDATES,*followups) if c[0] == entry["candidate"])
+        sides = make_signals(bars,candidate)
+        halves = [evaluate(bars,sides,val_start,midpoint,cost),
+                  evaluate(bars,sides,midpoint,test_start,cost)]
+        entry["validation_stability"] = {
+            "half_trades": [h["trades"] for h in halves],
+            "half_net_expectancy_r": [h["net_expectancy_r"] for h in halves],
+            "both_halves_positive": all(h["trades"]>=3 and h["net_expectancy_r"]>0
+                                         for h in halves),
+        }
+    # Do not promote the highest single-period result if one half has no
+    # positive net evidence; stronger holdout alone cannot rescue selection.
+    valid = [c for c in comparisons
+             if c["validation"]["trades"] >= 6
+             and c["validation_stability"]["both_halves_positive"]]
     chosen = None
     heldout = None
-    reason = "驗證段沒有至少5筆的候選" if not valid else None
+    reason = "驗證區間兩段未同時證明正淨期望值與足夠交易數" if not valid else None
     evidence = assess(None)
     if valid:
         selected = max(valid, key=lambda c: (
@@ -123,7 +141,7 @@ def run_cycle(csv_path, *, cost=COST):
         "paper_status": "research_candidate" if chosen and reason.startswith("初步") else "rejected",
         "reason": reason,
         "live_trading_authorized": False,
-        "note": "受控的16組歷史策略參數搜尋，不是生成式AI自主寫策略；多次搜尋偏差、資料真偽及前向績效尚待獨立確認。",
+        "note": "16組基礎候選加最多8組自動參數探索；兩段驗證只是歷史穩定性篩選，非獨立前向證據。",
     }
 
 
