@@ -102,7 +102,8 @@ def main():
         from collector import connect as connect_research_db
         connect_research_db(args.state_dir).close()
         from agent_history_backfill import backfill_once
-        backfill_runner = backfill_once
+        def backfill_runner(state_dir, symbol, interval):
+            return backfill_once(state_dir, symbol, interval, pages=8)
     proposal_runner = None
     if args.proposal_research:
         from agent_state_proposals import research_from_state
