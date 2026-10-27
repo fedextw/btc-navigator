@@ -33,6 +33,11 @@ class ModelComparisonTests(unittest.TestCase):
         self.assertEqual(calls[0][1],calls[1][1])
         self.assertEqual(result["comparison_scope"],"same_dataset_validation_only")
         self.assertEqual(result["cost_fraction"],.0014)
+        for entry in result["models"]:
+            self.assertIn("best_validation_strategy",entry)
+            self.assertIn("net_return_pct",entry["best_validation"])
+            self.assertIn("profit_factor",entry["best_validation"])
+            self.assertIn("max_drawdown_pct",entry["best_validation"])
         self.assertFalse(result["live_trading_authorized"])
         for entry in result["models"]:
             report=json.loads(Path(entry["report_path"]).read_text(encoding="utf-8"))
