@@ -62,7 +62,7 @@ def check_feedback_readiness(csv_path, prior, cost=0.0014):
             "parent_latest_utc":cutoff.isoformat()}
 
 def research_with_feedback(csv_path,output_dir,model_fn,*,model_id,prior,cost=0.0014):
-    check_feedback_readiness(csv_path, prior, cost)
+    readiness=check_feedback_readiness(csv_path, prior, cost)
     context=feedback_context(prior)
     def propose(prompt):
         raw = model_fn(json.dumps(context,sort_keys=True,ensure_ascii=False)+"\\n"+prompt)
@@ -87,4 +87,5 @@ def research_with_feedback(csv_path,output_dir,model_fn,*,model_id,prior,cost=0.
     # Link the model-derived candidate back to the exact parent report.
     parent_hash=hashlib.sha256(json.dumps(prior,sort_keys=True,ensure_ascii=False,allow_nan=False).encode("utf-8")).hexdigest()
     return model_research(csv_path,output_dir,propose,model_id=model_id,cost=cost,
-                          parent_report_sha256=parent_hash)
+                          parent_report_sha256=parent_hash,
+                          expected_dataset_sha256=readiness["dataset_sha256"])
