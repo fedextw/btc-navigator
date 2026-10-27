@@ -181,17 +181,21 @@ def main():
                             result["deterioration_research"]=run_once(
                                 args.state_dir,(symbol,),args.interval,args.mode,
                                 proposal_runner=None,backfill_runner=None)
-                            from agent_recheck_comparison import compare_research_recheck
-                            result["deterioration_comparison"]=compare_research_recheck(
-                                args.state_dir,
-                                next(x["reference_sha256"] for x in
-                                     result["forward_paper_review"]["items"]
-                                     if x.get("research_recheck") is requests[0]),
-                                result["deterioration_research"])
-                            from agent_fair_paper_queue import save_comparison_request
-                            result["comparison_request"]=save_comparison_request(
-                                args.state_dir,symbol,args.interval,
-                                result["deterioration_comparison"])
+                            try:
+                                from agent_recheck_comparison import compare_research_recheck
+                                result["deterioration_comparison"]=compare_research_recheck(
+                                    args.state_dir,
+                                    next(x["reference_sha256"] for x in
+                                         result["forward_paper_review"]["items"]
+                                         if x.get("research_recheck") is requests[0]),
+                                    result["deterioration_research"])
+                                from agent_fair_paper_queue import save_comparison_request
+                                result["comparison_request"]=save_comparison_request(
+                                    args.state_dir,symbol,args.interval,
+                                    result["deterioration_comparison"])
+                            except (ValueError,OSError,RuntimeError,KeyError,TypeError) as exc:
+                                result["deterioration_comparison"]={"status":"review_error",
+                                    "error_type":type(exc).__name__,"live_trading_authorized":False}
                     if args.auto_universe and args.mode=="live":
                         from agent_fair_paper_queue import review_comparison_requests
                         result["fair_paper_comparisons"]=review_comparison_requests(
