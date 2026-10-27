@@ -22,18 +22,19 @@ class ModelCycleTests(unittest.TestCase):
             for i in range(1000):
                 p=100+i*.1
                 w.writerow(((origin+timedelta(hours=i)).isoformat(),p,p+1,p-1,p,100))
-    def test_multigeneration_stops_on_unqualified_evidence(self):
+    def test_multigeneration_learns_from_unqualified_evidence(self):
         prompts=[]
         def model(prompt):
             prompts.append(prompt)
-            return json.dumps([{"family":"trend","lookback":10,"slow":50,
+            return json.dumps([{"family":"trend","lookback":10+len(prompts), "slow":50,
                                 "rationale":"paper hypothesis"}])
         result=run_multigeneration_model_cycle(self.data,self.root/"multi",model,
                          model_id="mocked",cutoffs=[400,1000])
         self.assertEqual(result["requested_generations"],2)
-        self.assertEqual(result["completed_generations"],1)
-        self.assertEqual(result["stop_reason"],"no_qualified_parent")
-        self.assertEqual(len(prompts),1)
+        self.assertEqual(result["completed_generations"],2)
+        self.assertIsNone(result["stop_reason"])
+        self.assertEqual(len(prompts),2)
+        self.assertIn("validation_only_feedback",prompts[1])
         self.assertFalse(result["live_trading_authorized"])
 
     def test_multigeneration_preflight_rejects_overlap_before_model(self):
