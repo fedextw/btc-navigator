@@ -7,11 +7,12 @@ gate as all other candidates. No LLM is configured by this module.
 import hashlib
 import json
 from agent_proposal_orchestrator import experiment, save_report
+from agent_csv_research import read_candles
 from agent_strategy_proposals import validate
 
 MAX_RESPONSE_BYTES = 16384
 
-def model_research(csv_path, output_dir, propose_fn, *, model_id, cost=0.0014, parent_report_sha256=None):
+def model_research(csv_path, output_dir, propose_fn, *, model_id, cost=0.0014, parent_report_sha256=None, expected_dataset_sha256=None):
     if not callable(propose_fn):
         raise ValueError("A model callable is required")
     if not isinstance(model_id, str) or not 1 <= len(model_id) <= 100:
@@ -20,6 +21,12 @@ def model_research(csv_path, output_dir, propose_fn, *, model_id, cost=0.0014, p
             or len(parent_report_sha256)!=64
             or any(c not in "0123456789abcdef" for c in parent_report_sha256)):
         raise ValueError("Invalid parent report fingerprint")
+    if expected_dataset_sha256 is not None:
+        if not isinstance(expected_dataset_sha256, str) or len(expected_dataset_sha256) != 64:
+            raise ValueError("Invalid expected dataset fingerprint")
+        actual_fingerprint=read_candles(csv_path)[1]
+        if actual_fingerprint != expected_dataset_sha256:
+            raise ValueError("Dataset changed before model invocation")
     response = propose_fn(
         "Return a JSON array of 1-12 bounded trend/breakout candidate "
         "specifications with family, lookback, slow and rationale. "
@@ -32,7 +39,11 @@ def model_research(csv_path, output_dir, propose_fn, *, model_id, cost=0.0014, p
         raise ValueError("Model must return 1-12 proposals")
     for spec in candidates:
         validate(spec)
+    if expected_dataset_sha256 is not None and read_candles(csv_path)[1] != expected_dataset_sha256:
+        raise ValueError("Dataset changed during model research")
     report = experiment(csv_path, cost=cost, ai_proposals=candidates)
+    if expected_dataset_sha256 is not None and report["dataset_sha256"] != expected_dataset_sha256:
+        raise ValueError("Dataset changed during research evaluation")
     report["proposal_model_id"] = model_id
     report["parent_report_sha256"] = parent_report_sha256
     report["model_feedback_used"] = parent_report_sha256 is not None
