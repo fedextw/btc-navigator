@@ -36,11 +36,13 @@ def compare_models(csv_path, out_dir, *, models=("gpt-4.1-mini","gpt-5.4-mini"),
         if report["dataset_sha256"]!=fingerprint:
             raise ValueError("Research datasets differ")
         eligible=[c for c in report["candidates"] if c["status"]=="validation_pass"]
-        best=max((c["validation"]["net_expectancy_r"] for c in report["candidates"]),default=None)
+        best=max(report["candidates"],key=lambda c:(c["validation"]["net_expectancy_r"],-c["validation"]["max_drawdown_pct"],c["strategy"])) if report["candidates"] else None
         entries.append({"model":model,"report_path":run["report_path"],
                         "candidate_count":report["candidate_count"],
                         "qualified_count":len(eligible),
-                        "best_validation_net_expectancy_r":best,
+                        "best_validation_strategy":best["strategy"] if best else None,
+                        "best_validation":({k:best["validation"][k] for k in ("trades","net_expectancy_r","max_drawdown_pct","profit_factor","net_return_pct")} if best else None),
+                        "best_validation_net_expectancy_r":best["validation"]["net_expectancy_r"] if best else None,
                         "paper_only":True})
     result={"schema":"agent-model-comparison-v1","dataset_sha256":fingerprint,
             "cost_fraction":cost,"models":entries,
