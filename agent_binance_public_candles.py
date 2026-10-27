@@ -27,7 +27,8 @@ def download_public_candles(path, *, symbol="BTCUSDT", interval="1h", count=1600
         raise FileExistsError("Research snapshot already exists")
     request=fetch if fetch is not None else urllib.request.urlopen
     rows=[]
-    # End the initial page at least one full interval in the past.\n    # This prevents selecting the actively forming candle.\n    interval_ms={"1m":60000,"5m":300000,"15m":900000,"1h":3600000,\n                 "4h":14400000,"1d":86400000}[interval]\n    end=int(datetime.now(timezone.utc).timestamp()*1000)-interval_ms\n    # Binance endpoint provides at most 1500 candles per response.
+    # End the initial page at least one full interval in the past.\n    # This prevents selecting the actively forming candle.\n    interval_ms={"1m":60000,"5m":300000,"15m":900000,"1h":3600000,\n                 "4h":14400000,"1d":86400000}[interval]\n    now_ms=int(datetime.now(timezone.utc).timestamp()*1000)
+    end=(now_ms//interval_ms)*interval_ms-1\n    # Binance endpoint provides at most 1500 candles per response.
     while len(rows)<count:
         size=min(1000,count-len(rows))
         query={"symbol":symbol,"interval":interval,"limit":size}
