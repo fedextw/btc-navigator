@@ -136,11 +136,12 @@ def main():
                                           backfill_runner=backfill_runner)
                         if args.auto_universe:
                             if fully_completed(result):
-                                # Advance cursor before clearing pending: a
-                                # crash cannot silently skip uncompleted work.
+                                # Clear completed retries first; on crash, a
+                                # repeated safe batch is better than a stale
+                                # pending file locking the next batch.
+                                clear_pending(args.state_dir)
                                 batch_number += 1
                                 save_cursor(args.state_dir,batch_number)
-                                clear_pending(args.state_dir)
                             else:
                                 pending=failed_symbols(result)
                                 if pending:
