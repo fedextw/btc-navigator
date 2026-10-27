@@ -35,7 +35,7 @@ def feedback_context(prior):
         summary.append({"strategy":str(item.get("strategy",""))[:90],
                         "validation":values,"status":str(item.get("status",""))[:40]})
     return {"source":"validation_only_feedback","prior_dataset_sha256":prior.get("dataset_sha256"),
-            "candidates":summary,"instruction":"Propose a *hypothesis* for independently verified new data; no code or trade instructions."}
+            "candidates":summary,"instruction":"Prior candidates failed or passed only on validation; explore independent bounded strategy families including mean_reversion, not just parameter changes. Propose hypotheses for new data; no code or trade instructions."}
 
 def check_feedback_readiness(csv_path, prior, cost=0.0014):
     """Use the identical evidence checks for dry-run and real model research."""
