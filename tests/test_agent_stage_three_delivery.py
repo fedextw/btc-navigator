@@ -1,0 +1,51 @@
+import json
+import tempfile
+import unittest
+from pathlib import Path
+from unittest.mock import patch
+from agent_stage_three_delivery import run_delivery
+
+class StageThreeDeliveryTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp=tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root=Path(self.tmp.name)
+    def test_one_command_same_market_no_live_promotion(self):
+        market=self.root/"market.csv"
+        market.write_text("frozen",encoding="utf-8")
+        trial={"market":{"csv":str(market),"dataset_sha256":"a"*64},
+               "research":{"completed_generations":2},
+               "provider_verified_by_live_calls":False,
+               "acceptance":{"accepted":False}}
+        comparison={"dataset_sha256":"a"*64,"models":[{"model":"baseline"},{"model":"challenger"}]}
+        with patch("agent_stage_three_delivery.run_stage_three_trial",return_value=trial) as runner,patch(
+            "agent_stage_three_delivery.compare_models",return_value=comparison) as matcher:
+            result=run_delivery(self.root/"delivery",comparison_models=("baseline","challenger"),
+                                propose=lambda p:"[]",comparison_provider=lambda m,p:"[]")
+        self.assertEqual(runner.call_count,1)
+        self.assertEqual(matcher.call_count,1)
+        self.assertEqual(matcher.call_args.args[0],str(market))
+        self.assertEqual(result["comparison_models"],["baseline","challenger"])
+        self.assertFalse(result["profitability_proven"])
+        self.assertFalse(result["live_trading_authorized"])
+        self.assertFalse(result["engineering_accepted"])
+        self.assertTrue((self.root/"delivery"/"delivery_summary.json").exists())
+    def test_mismatched_market_rejected(self):
+        trial={"market":{"csv":"ignored","dataset_sha256":"a"*64},
+               "research":{"completed_generations":2},
+               "provider_verified_by_live_calls":True,
+               "acceptance":{"accepted":True}}
+        compare={"dataset_sha256":"b"*64,"models":[]}
+        with patch("agent_stage_three_delivery.run_stage_three_trial",return_value=trial),patch(
+            "agent_stage_three_delivery.compare_models",return_value=compare):
+            with self.assertRaisesRegex(ValueError,"dataset differs"):
+                run_delivery(self.root/"invalid")
+        self.assertFalse((self.root/"invalid"/"delivery_summary.json").exists())
+    def test_never_overwrites_existing_evidence(self):
+        target=self.root/"existing"
+        target.mkdir()
+        (target/"keep.txt").write_text("never overwrite",encoding="utf-8")
+        with self.assertRaises(FileExistsError):
+            run_delivery(target)
+if __name__=="__main__":
+    unittest.main()
