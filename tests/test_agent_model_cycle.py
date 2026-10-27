@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 from datetime import datetime,timedelta,timezone
 from unittest.mock import patch
-from agent_model_cycle import run_model_feedback_cycle, resume_from_report, main
+from agent_model_cycle import run_model_feedback_cycle, run_multigeneration_model_cycle, resume_from_report, main
 
 class ModelCycleTests(unittest.TestCase):
     def setUp(self):
@@ -22,6 +22,33 @@ class ModelCycleTests(unittest.TestCase):
             for i in range(1000):
                 p=100+i*.1
                 w.writerow(((origin+timedelta(hours=i)).isoformat(),p,p+1,p-1,p,100))
+    def test_multigeneration_stops_on_unqualified_evidence(self):
+        prompts=[]
+        def model(prompt):
+            prompts.append(prompt)
+            return json.dumps([{"family":"trend","lookback":10,"slow":50,
+                                "rationale":"paper hypothesis"}])
+        result=run_multigeneration_model_cycle(self.data,self.root/"multi",model,
+                         model_id="mocked",cutoffs=[400,1000])
+        self.assertEqual(result["requested_generations"],2)
+        self.assertEqual(result["completed_generations"],1)
+        self.assertEqual(result["stop_reason"],"no_qualified_parent")
+        self.assertEqual(len(prompts),1)
+        self.assertFalse(result["live_trading_authorized"])
+
+    def test_multigeneration_preflight_rejects_overlap_before_model(self):
+        prompts=[]
+        with self.assertRaisesRegex(ValueError,"overlap"):
+            run_multigeneration_model_cycle(self.data,self.root/"overlap",prompts.append,
+                          model_id="mocked",cutoffs=[400,600])
+        self.assertEqual(prompts,[])
+        self.assertFalse((self.root/"overlap").exists())
+
+    def test_multigeneration_cutoffs_are_bounded(self):
+        with self.assertRaises(ValueError):
+            run_multigeneration_model_cycle(self.data,self.root/"invalid",lambda _: "[]",
+                model_id="mocked",cutoffs=[300,350,400,450,500])
+
     def test_no_qualified_parent_stops_model_cycle(self):
         calls=[]
         def model(prompt):
