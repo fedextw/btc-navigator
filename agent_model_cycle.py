@@ -164,10 +164,16 @@ def main():
     modes=parser.add_mutually_exclusive_group(required=True)
     modes.add_argument("--resume",help="Immutable prior report JSON path")
     modes.add_argument("--first-cutoff",type=int)
+    modes.add_argument("--cutoffs",nargs="+",type=int,help="Run 1-4 bounded generations")
     parser.add_argument("--second-cutoff",type=int)
     args=parser.parse_args()
     provider=lambda prompt:openai_compatible_model(prompt,model=args.model)
-    if args.resume:
+    if args.cutoffs is not None:
+        if args.second_cutoff is not None:
+            parser.error("--second-cutoff cannot be used with --cutoffs")
+        result=run_multigeneration_model_cycle(args.csv,args.out,provider,
+                             model_id=args.model,cutoffs=args.cutoffs)
+    elif args.resume:
         if args.second_cutoff is not None:
             parser.error("--second-cutoff is only valid with --first-cutoff")
         result=resume_from_report(args.csv,args.out,provider,model_id=args.model,
