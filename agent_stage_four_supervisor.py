@@ -114,6 +114,8 @@ def supervise(state_dir, *, max_batches, hours=6, interval="1h",
                 slot=slot,completed_batches=len(outcomes)+(status=="completed"),
                 max_calls=max_calls)
         outcomes.append({"slot": slot, "status": status})
+        # A saved reservation means a prior paid request could be unresolved.
+        # Do not schedule another slot after any ambiguous state.
         if status in ("requires_manual_review", "empty_universe"):
             break
         if index + 1 < max_batches:
