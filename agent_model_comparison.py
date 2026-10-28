@@ -48,9 +48,9 @@ def compare_models(csv_path, out_dir, *, models=("gpt-4.1-mini","gpt-5.4-mini"),
             "cost_fraction":cost,"models":entries,
             "comparison_scope":"same_dataset_validation_only",
             "real_provider_calls_verified":provider is None,
-            "heldout_untouched":True,"paper_only":True,
+            "heldout_untouched":False,"paper_only":True,
             "live_trading_authorized":False,
-            "note":"Model candidate quality comparison, not a forecast or live promotion."}
+            "note":"Same-dataset exploratory A/B; later research validation windows are not a pristine holdout. Not a forecast or live promotion."}
     (root/"comparison_summary.json").write_text(json.dumps(result,ensure_ascii=False,
         sort_keys=True,indent=2,allow_nan=False)+"\n",encoding="utf-8")
     return result
