@@ -33,10 +33,13 @@ def delivery(state_dir, *, slot, execute=False, allow_model_calls=0,
                 "requires_manual_review","empty_universe","not_executed")):
         raise ValueError("Unsafe or unrecognized Stage Four acceptance result")
     audit=audit_delivery(state_dir,interval=interval)
+    # An earlier verified checkpoint must not certify a new batch that was
+    # skipped, waiting for data, or stopped for manual review.
+    current_batch_valid = (not execute or rotation["status"]=="completed")
     return {"schema":"agent-stage4-local-acceptance-v1",
             "mode":"live_public_data_and_model" if execute else "offline_preflight",
             "rotation_status":rotation["status"],"rotation":rotation,
-            "audit":audit,"engineering_evidence_valid":audit["engineering_evidence_valid"],
+            "audit":audit,"engineering_evidence_valid":bool(audit["engineering_evidence_valid"] and current_batch_valid),
             "real_forward_paper_validated":False,
             "profitability_proven":False,"automatic_promotion":False,
             "paper_only":True,"live_trading_authorized":False}
