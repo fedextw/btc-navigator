@@ -58,6 +58,11 @@ def supervise(state_dir, *, max_batches, hours=6, interval="1h",
         try:
             result = runner(state_dir, slot=slot, interval=interval, model=model, count=count)
             status = result["status"]
+            permitted = {"completed", "already_processed", "waiting_for_fresh_data",
+                         "requires_manual_review", "empty_universe"}
+            if (status not in permitted or result.get("live_trading_authorized",False) is not False
+                    or result.get("paper_only",True) is not True):
+                raise ValueError("Unsafe or unknown OpenAI research result; halting")
         except Exception:
             _status(state_dir,phase="error",slot=slot,
                     completed_batches=len(outcomes),max_calls=max_calls)
