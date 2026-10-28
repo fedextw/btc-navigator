@@ -37,6 +37,25 @@ class StageFourReleaseGateTests(unittest.TestCase):
                     self.assertIn(name,inspect(root)["runtime_or_secret_paths"])
                     target.unlink()
 
+    def test_nested_runtime_secrets_rejected_in_release(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            for name in ESSENTIAL:
+                (root/name).write_text("",encoding="utf-8")
+            (root/"START_BC_RESEARCH_TEST.bat").write_text(
+                'set "BTC_NAVIGATOR_STATE_DIR=%~dp0.agent-test-state"\\n'
+                'call "START.bat" --port 8591 --agent-research\\n',encoding="utf-8")
+            self.assertTrue(inspect(root)["ready"])
+            for name in (".env", ".env.local", "openai-stage4.log", "stage4-openai"):
+                with self.subTest(name=name):
+                    nested=root/"subfolder"/name
+                    nested.parent.mkdir(parents=True,exist_ok=True)
+                    nested.write_text("PRIVATE",encoding="utf-8")
+                    report=inspect(root)
+                    self.assertFalse(report["ready"])
+                    self.assertIn("subfolder/"+name, report["runtime_or_secret_paths"])
+                    nested.unlink()
+
     def test_missing_one_stage_four_module_blocks_release(self):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp)
