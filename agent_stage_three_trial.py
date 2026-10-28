@@ -13,7 +13,7 @@ from agent_llm_adapter import openai_compatible_model
 from agent_stage_three_acceptance import verify_stage_three
 
 def run_stage_three_trial(root, *, symbol="BTCUSDT", interval="1h", model="gpt-4.1-mini",
-                          count=1600, fetch=None, propose=None):
+                          count=1600, fetch=None, propose=None, generation_cutoffs=None):
     target=Path(root)
     if target.exists() and any(target.iterdir()):
         raise FileExistsError("Choose a new empty research trial directory")
@@ -29,7 +29,7 @@ def run_stage_three_trial(root, *, symbol="BTCUSDT", interval="1h", model="gpt-4
         return response
     provider=propose if propose is not None else real_provider
     # Require an independent 60%+ validation window for the second generation.
-    cutoffs=[max(300,int(count*.36)),count]
+    cutoffs=generation_cutoffs if generation_cutoffs is not None else [max(300,int(count*.36)),count]
     result=run_multigeneration_model_cycle(dataset["csv"],target/"reports",
                    provider,model_id=model,cutoffs=cutoffs)
     # Model success alone is not stage completion. No external attestation is
