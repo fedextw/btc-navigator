@@ -31,7 +31,7 @@ def _status(state_dir, *, phase, slot="", completed_batches=0, max_calls=0):
     os.replace(temporary,target)
 
 
-def supervise(state_dir, * max_batches, hours=6, interval="1h",
+def supervise(state_dir, *, max_batches, hours=6, interval="1h",
               model="gpt-4.1-mini", count=1600, runner=run_rotation,
               clock=None, sleep=None):
     if type(max_batches) is not int or not 1 <= max_batches <= 24:
