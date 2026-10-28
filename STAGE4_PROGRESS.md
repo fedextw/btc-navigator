@@ -30,3 +30,6 @@ No merge to production. No live orders. No guaranteed positive expectancy.
 
 ## Opt-in bounded UTC scheduler
 `agent_stage_four_periodic.py` reuses the same checkpointed research worker. It rounds timestamps into 1/2/3/4/6/8/12/24h UTC slots, supports `--once` and a bounded `--max-cycles`, and halts when a slot requires manual review. Nothing starts on boot and no third-party schedule is created. Reuse of a completed slot does not repeat model billing. The checkpointed worker now automatically passes the last completed report to the next slot, preserving cross-generation feedback. An incomplete slot or missing completed report halts research rather than reusing the original seed. Dynamic symbol rotation remains outstanding.
+
+## Multi-market isolated batch (new)
+`agent_stage_four_multimarket.py` now executes a bounded, explicitly selected batch of 1–10 USDT contract symbols. Each market/interval has its own state directory, checkpoint, last-generation report and failure status. One contract's failure does not overwrite other markets' lineage. Every contract requires its own valid previously created seed report; BTC research evidence must never serve as ETH evidence. This is a manual bounded market list, **not yet dynamic Binance-wide universe discovery**. No live trading.
