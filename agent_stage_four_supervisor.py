@@ -76,7 +76,20 @@ def supervise(state_dir, *, max_batches, hours=6, interval="1h",
             current = clock()
             elapsed = ((current.hour % hours) * 3600 +
                        current.minute * 60 + current.second)
-            sleep(max(1, hours * 3600 - elapsed))
+            delay=max(1, hours * 3600 - elapsed)
+            if sleep is time.sleep:
+                # Keep a genuine heartbeat while idle, without new model calls.
+                # A previously displayed "running" state must never linger.
+                deadline=time.monotonic()+delay
+                while time.monotonic()<deadline:
+                    phase=("waiting_for_fresh_data" if status=="waiting_for_fresh_data"
+                           else "waiting_for_next_slot")
+                    _status(state_dir,phase=phase,slot=slot,
+                            completed_batches=sum(x["status"]=="completed" for x in outcomes),
+                            max_calls=max_calls)
+                    time.sleep(min(60, max(0,deadline-time.monotonic())))
+            else:
+                sleep(delay)
     if outcomes:
         final_status=outcomes[-1]["status"]
         phase=(final_status if final_status in ("requires_manual_review","waiting_for_fresh_data")
