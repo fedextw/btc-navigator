@@ -43,5 +43,17 @@ if errorlevel 1 (
 )
 set "BTC_NAVIGATOR_STATE_DIR=%~dp0.agent-test-state"
 if not exist "%BTC_NAVIGATOR_STATE_DIR%" mkdir "%BTC_NAVIGATOR_STATE_DIR%"
-call "%~dp0START.bat" --port 8591 --agent-research %*
+set "BC_OPENAI_ARGS="
+if defined OPENAI_API_KEY (
+  echo.
+  echo OpenAI paid research is available. Maximum 10 model calls for this session.
+  echo Paper research only. No live orders.
+  choice /C YN /N /M "Authorize up to 10 paid OpenAI calls now? [Y/N]: "
+  if errorlevel 2 (
+    echo OpenAI paid research not authorized; normal paper research continues.
+  ) else (
+    set "BC_OPENAI_ARGS=--openai-batches 1 --openai-ack-calls 10"
+  )
+)
+call "%~dp0START.bat" --port 8591 --agent-research %BC_OPENAI_ARGS% %*
 exit /b %ERRORLEVEL%
