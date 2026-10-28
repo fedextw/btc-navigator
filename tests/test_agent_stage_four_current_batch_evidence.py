@@ -10,15 +10,25 @@ class StageFourCurrentBatchEvidenceTests(unittest.TestCase):
                 with self.subTest(state=state):
                     outcome={"status":state,"paper_only":True,"live_trading_authorized":False}
                     with patch("agent_stage_four_delivery.run_rotation",return_value=outcome),\
-                         patch("agent_stage_four_delivery.audit_delivery",return_value={"engineering_evidence_valid":True}):
+                         patch("agent_stage_four_delivery.audit_delivery",return_value={"engineering_evidence_valid":True,"rotation_slot":"20261029T00Z"}):
                         result=delivery(td,slot="20261029T00Z",execute=True,
                                         allow_model_calls=10,runner=lambda *a,**k:None)
                         self.assertFalse(result["engineering_evidence_valid"])
+    def test_different_completed_slot_cannot_certify_current_batch(self):
+        with tempfile.TemporaryDirectory() as td:
+            outcome={"status":"completed","paper_only":True,"live_trading_authorized":False}
+            with patch("agent_stage_four_delivery.run_rotation",return_value=outcome),\
+                 patch("agent_stage_four_delivery.audit_delivery",return_value={
+                     "engineering_evidence_valid":True,"rotation_slot":"OLD_SLOT"}):
+                result=delivery(td,slot="20261029T00Z",execute=True,
+                                allow_model_calls=10,runner=lambda *a,**k:None)
+                self.assertFalse(result["engineering_evidence_valid"])
+
     def test_current_completed_batch_with_matching_audit_can_pass(self):
         with tempfile.TemporaryDirectory() as td:
             outcome={"status":"completed","paper_only":True,"live_trading_authorized":False}
             with patch("agent_stage_four_delivery.run_rotation",return_value=outcome),\
-                 patch("agent_stage_four_delivery.audit_delivery",return_value={"engineering_evidence_valid":True}):
+                 patch("agent_stage_four_delivery.audit_delivery",return_value={"engineering_evidence_valid":True,"rotation_slot":"20261029T00Z"}):
                 result=delivery(td,slot="20261029T00Z",execute=True,
                                 allow_model_calls=10,runner=lambda *a,**k:None)
                 self.assertTrue(result["engineering_evidence_valid"])
