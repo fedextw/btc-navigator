@@ -47,7 +47,7 @@ def run_rotation(state_dir, *, slot, seeds=None, fetch=None, runner=None,
         if not universe["symbols"]:
             return {"status":"empty_universe","paper_only":True,"live_trading_authorized":False}
         base={"schema":"agent-stage4-universe-cursor-v1","slot":slot,
-              "offset":offset,"status":"reserved",
+              "offset":offset,"status":"reserved","symbols":list(universe["symbols"]),
               "paper_only":True,"live_trading_authorized":False}
         _save(cursor,base)
         # Reuse one discovered selection to avoid a second potentially changed page.
