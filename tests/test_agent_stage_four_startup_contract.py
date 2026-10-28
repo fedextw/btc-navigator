@@ -26,6 +26,12 @@ class StageFourStartupWiringTests(unittest.TestCase):
         self.assertIn('from agent_stage_four_ui_status import load_openai_status',panel)
         self.assertIn('stage4-openai',reader)
         self.assertIn('not_started',reader)
+    def test_ai_research_panel_displays_verified_evidence_not_fake_performance(self):
+        panel=(ROOT/"agent_research_panel.py").read_text(encoding="utf-8")
+        self.assertIn('audit_delivery(Path(state_root)/"stage4-openai")',panel)
+        self.assertIn('evidence["reports_verified"]',panel)
+        self.assertIn('evidence["engineering_evidence_valid"]',panel)
+        self.assertIn("研究證據完整不等於前向模擬獲利",panel)
     def test_default_windows_start_never_enables_unapproved_paid_calls(self):
         bat=(ROOT/"START_BC_RESEARCH_TEST.bat").read_text(encoding="utf-8")
         launch=(ROOT/"launch.py").read_text(encoding="utf-8")
