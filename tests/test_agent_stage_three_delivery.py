@@ -44,6 +44,24 @@ class StageThreeDeliveryTests(unittest.TestCase):
         self.assertFalse(report["engineering_accepted"])
         self.assertFalse(report["comparison_provider_verified"])
 
+    def test_resume_requires_independent_market_and_never_claims_live_provider_from_stub(self):
+        trial={"market":{"csv":"frozen.csv","dataset_sha256":"a"*64},
+               "research":{"completed_generations":2,"reports":["prior-evidence.json"]},
+               "provider_verified_by_live_calls":True,
+               "acceptance":{"accepted":True}}
+        comparison={"dataset_sha256":"a"*64,"models":[{"model":"one"},{"model":"two"}],
+                    "real_provider_calls_verified":True}
+        resumed={"report_path":"resumed-evidence.json","live_trading_authorized":False}
+        with patch("agent_stage_three_delivery.run_stage_three_trial",return_value=trial),patch(
+            "agent_stage_three_delivery.compare_models",return_value=comparison),patch(
+            "agent_stage_three_delivery.resume_from_report",return_value=resumed) as recovery:
+            report=run_delivery(self.root/"recovered",resume_csv="new-market.csv",
+                                resume_provider=lambda prompt:"[]")
+        self.assertEqual(recovery.call_args.args[0],"new-market.csv")
+        self.assertEqual(recovery.call_args.kwargs["previous_report_path"],"prior-evidence.json")
+        self.assertFalse(report["research_resume_verified"])
+        self.assertFalse(report["engineering_accepted"])
+        self.assertEqual(report["research_resume_report"],"resumed-evidence.json")
     def test_mismatched_market_rejected(self):
         trial={"market":{"csv":"ignored","dataset_sha256":"a"*64},
                "research":{"completed_generations":2},
