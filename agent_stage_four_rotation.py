@@ -41,10 +41,16 @@ def run_rotation(state_dir, *, slot, seeds=None, fetch=None, runner=None,
                 raise ValueError("Unrecognized rotation cursor status")
         offset=previous["next_offset"] if previous else 0
         # One snapshot for both selection and research (no inconsistent pages).
-        universe=discover(fetch=fetch,limit=10,offset=offset)
+        # Exclude contracts that demonstrably cannot supply the requested
+        # fully closed candle window before reserving any paid research slot.
+        interval_ms={"15m":900000,"1h":3600000,"4h":14400000}
+        minimum_history_ms=count*interval_ms[interval]
+        universe=discover(fetch=fetch,limit=10,offset=offset,
+                          minimum_history_ms=minimum_history_ms)
         if not universe["symbols"] and offset>0:
             offset=0
-            universe=discover(fetch=fetch,limit=10,offset=0)
+            universe=discover(fetch=fetch,limit=10,offset=0,
+                              minimum_history_ms=minimum_history_ms)
         if not universe["symbols"]:
             return {"status":"empty_universe","paper_only":True,"live_trading_authorized":False}
         readiness=check_batch_readiness(root,universe["symbols"],interval=interval,count=count)
