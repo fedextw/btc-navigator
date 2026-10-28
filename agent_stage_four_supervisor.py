@@ -42,6 +42,17 @@ def supervise(state_dir, *, max_batches, hours=6, interval="1h",
         raise ValueError("OPENAI_API_KEY is required before starting paid AI research")
     clock = clock or (lambda: datetime.now(timezone.utc))
     sleep = sleep or time.sleep
+    # Never repeat already attempted slots following a process restart.
+    # The rotation cursor remains the authoritative ledger for billing.
+    ledger=Path(state_dir)/"stage4-universe-cursor.json"
+    if ledger.is_file():
+        if ledger.stat().st_size>4096:
+            raise ValueError("Oversized persisted research cursor")
+        previous=json.loads(ledger.read_text(encoding="utf-8"))
+        if previous.get("schema")!="agent-stage4-universe-cursor-v1" or previous.get("live_trading_authorized") is not False:
+            raise ValueError("Invalid persisted research cursor")
+        if previous.get("status")=="reserved":
+            raise ValueError("Interrupted research slot requires manual review before paid work")
     attempted = set()
     outcomes = []
     max_calls=10*max_batches
