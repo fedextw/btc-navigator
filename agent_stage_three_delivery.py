@@ -5,6 +5,7 @@ The final acceptance is engineering evidence, NOT profitable strategy approval.
 """
 import argparse
 import json
+import hashlib
 from pathlib import Path
 from agent_stage_three_trial import run_stage_three_trial
 from agent_model_comparison import compare_models
@@ -45,7 +46,22 @@ def run_delivery(out, *, symbol="BTCUSDT", interval="1h", count=1600,
             lambda prompt:openai_compatible_model(prompt,model=model))
         resume=resume_from_report(resume_csv,root/"resume",provider,
                                   model_id=model,previous_report_path=prior)
-    recovery_verified=resume is not None and resume_provider is None and propose is None
+    recovery_verified=False
+    if resume is not None:
+        source=Path(resume["report_path"])
+        raw=source.read_bytes()
+        if source.stem!=hashlib.sha256(raw).hexdigest():
+            raise ValueError("Resumed report failed content-address validation")
+        restored=json.loads(raw)
+        ancestor=json.loads(Path(prior).read_text(encoding="utf-8"))
+        expected=hashlib.sha256(json.dumps(ancestor,sort_keys=True,
+                        ensure_ascii=False,allow_nan=False).encode("utf-8")).hexdigest()
+        if (restored.get("parent_report_sha256")!=expected or
+                restored.get("model_feedback_used") is not True or
+                restored.get("paper_only") is not True or
+                restored.get("live_trading_authorized") is not False):
+            raise ValueError("Unsafe or unlinked resumed research evidence")
+        recovery_verified=resume_provider is None and propose is None
     accepted=trial["acceptance"]["accepted"] and comparison_verified and recovery_verified
     result={"schema":"agent-stage-three-delivery-v1",
             "dataset_sha256":trial["market"]["dataset_sha256"],
