@@ -1,7 +1,8 @@
 import tempfile
 import unittest
 from pathlib import Path
-from agent_stage_four_multimarket import run_batch
+from agent_stage_four_multimarket import run_batch,run_discovered_batch
+from unittest.mock import patch
 
 class MultiMarketStage4Tests(unittest.TestCase):
     def setUp(self):
@@ -37,6 +38,25 @@ class MultiMarketStage4Tests(unittest.TestCase):
                       seed_reports={"BTCUSDT":"btc.json"},
                       slot="20261028T00Z",runner=lambda *a,**kw:calls.append(True))
         self.assertFalse(calls)
+    def test_discovery_uses_only_active_markets_with_own_seed(self):
+        calls=[]
+        def fake(*args,**kwargs):
+            calls.append(kwargs["symbol"])
+            return {"status":"completed"}
+        universe={"symbols":["BTCUSDT","ETHUSDT","SOLUSDT"],"eligible_total":3}
+        with patch("agent_stage_four_multimarket.discover",return_value=universe):
+            result=run_discovered_batch(self.root,seed_reports={"BTCUSDT":"btc.json",
+                          "SOLUSDT":"sol.json"},slot="20261028T00Z",runner=fake)
+        self.assertEqual(calls,["BTCUSDT","SOLUSDT"])
+        self.assertEqual(len(result["items"]),2)
+        self.assertFalse(result["live_trading_authorized"])
+    def test_unseeded_active_contracts_do_not_borrow_other_reports(self):
+        with patch("agent_stage_four_multimarket.discover",
+                   return_value={"symbols":["ETHUSDT"],"eligible_total":1}):
+            result=run_discovered_batch(self.root,seed_reports={"BTCUSDT":"btc.json"},
+                                        slot="20261028T00Z")
+        self.assertEqual(result["status"],"no_seeded_active_contracts")
+        self.assertEqual(result["items"],[])
     def test_duplicate_symbol_rejected(self):
         with self.assertRaisesRegex(ValueError,"unique"):
             run_batch(self.root,symbols=("BTCUSDT","BTCUSDT"),
