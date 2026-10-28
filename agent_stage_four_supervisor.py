@@ -89,6 +89,8 @@ def supervise(state_dir, *, max_batches, hours=6, interval="1h",
                     elapsed=(current.hour % hours)*3600+current.minute*60+current.second
                     delay=max(1,hours*3600-elapsed)
                     if sleep is time.sleep:
+                        if os.getenv("CI","").lower()=="true":
+                            raise RuntimeError("CI must inject a virtual clock; refusing real scheduled wait")
                         deadline=time.monotonic()+delay
                         while time.monotonic()<deadline:
                             _status(state_dir,phase="waiting_for_next_slot",slot=slot,max_calls=max_calls)
@@ -144,6 +146,8 @@ def supervise(state_dir, *, max_batches, hours=6, interval="1h",
                        current.minute * 60 + current.second)
             delay=max(1, hours * 3600 - elapsed)
             if sleep is time.sleep:
+                if os.getenv("CI","").lower()=="true":
+                    raise RuntimeError("CI must inject a virtual clock; refusing real scheduled wait")
                 # Keep a genuine heartbeat while idle, without new model calls.
                 # A previously displayed "running" state must never linger.
                 deadline=time.monotonic()+delay
