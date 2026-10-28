@@ -60,3 +60,6 @@ py -3 agent_stage_four_delivery.py --state-dir ".local-state\\stage4-local" --sl
 ```
 
 A successful CI run verifies mocked orchestration only. Actual multi-market API behavior, cost and stable prospective performance still require evidence from the user's machine. Never upload API keys.
+
+## Local audit files
+The acceptance CLI now saves a structured local report named `stage4-preflight.json` or `stage4-live-acceptance.json` inside the supplied state directory, which can be uploaded without API credentials. Keep the entire `markets` subfolder intact for independent report verification. No live API calls are run automatically.
