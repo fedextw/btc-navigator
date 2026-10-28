@@ -20,7 +20,7 @@ py -3 agent_stage_three_delivery.py --out ".local-state\stage3-delivery-01" --sy
 
 This action downloads public market data and performs **five potentially billable OpenAI model research calls** (two-generation trial + two model comparison calls + one research resume call). If the provider returns more/fewer valid generations or a provider call fails, the script fails closed. The user's own API access/billing must be configured locally; CI cannot prove real-provider connectivity. Never upload API secrets.
 
-Review `.local-state\stage3-delivery-01\delivery_summary.json`, `trial/trial_summary.json`, `trial/reports/`, `comparison/comparison_summary.json`, and `comparison/model_*/`.
+**Before executing**: verify your account can call both listed model IDs. Availability, access and JSON-schema support are determined by your OpenAI API project; GitHub CI does not contact the OpenAI API. If `gpt-5.4-mini` is unavailable, replace it explicitly with another accessible model ID rather than treating a model-availability error as a strategy failure. The command is intentionally not auto-run by CI because it uses personal API billing.\n\nReview `.local-state\stage3-delivery-01\delivery_summary.json`, `trial/trial_summary.json`, `trial/reports/`, `comparison/comparison_summary.json`, and `comparison/model_*/`.
 
 ## Engineering acceptance versus profitability
 - Engineering acceptance: two real model-backed generations, a real provider-backed recovery generation, valid chronological lineage, provider evidence recorded on live path, same frozen dataset for A/B, Windows/Linux CI green
