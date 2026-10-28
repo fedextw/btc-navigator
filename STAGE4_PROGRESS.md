@@ -42,3 +42,6 @@ When a discovered Binance USD-M perpetual symbol has no previous research record
 
 ## Forward-paper evidence linkage (new)
 `agent_stage_four_paper_review.py` verifies that an external, independently recorded prospective-paper summary references precisely the immutable SHA-256 of that market's latest report. No paper summary means no forward-trade credit; mismatched symbols/report IDs and implied actual fills are refused. Paper observation counts are reported separately from strategy research validation and never by themselves prove profitability. This module does not fabricate new forward observations: real time-series forward evidence still needs to be accumulated and operationally audited.
+
+## Integrated stage-four evidence gate (new)
+`agent_stage_four_integrated_audit.py` reads the persisted rotation checkpoint, per-symbol immutable research reports, and optionally supplied prospective paper summaries. It refuses engineering acceptance when rotation has not completed, no reports exist or a symbol's research is incomplete/corrupted. A positive engineering audit is **not** forward validation: `forward_performance_validated=false`, `profitability_proven=false`, and `live_trading_authorized=false`. Unit integration tests use mocked evidence; actual independent real-time data collection and long-running operator acceptance remain outstanding.
