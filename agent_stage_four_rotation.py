@@ -50,19 +50,13 @@ def run_rotation(state_dir, *, slot, seeds=None, fetch=None, runner=None,
               "offset":offset,"status":"reserved",
               "paper_only":True,"live_trading_authorized":False}
         _save(cursor,base)
-        # Pass already-discovered immutable selection; do not refetch exchangeInfo.
-        def static_discovery(*,fetch=None,limit=10,offset=0):
-            return universe
-        from unittest.mock import patch
-        try:
-            with patch("agent_stage_four_multimarket.discover",static_discovery):
-                options={"seed_reports":seeds or {},"slot":slot,"offset":offset,
-                         "interval":interval,"model":model,"count":count}
-                if runner is not None:
-                    options["runner"]=runner
-                result=run_discovered_batch(root,**options)
-        except Exception:
-            raise
+        # Reuse one discovered selection to avoid a second potentially changed page.
+        options={"seed_reports":seeds or {},"slot":slot,"offset":offset,
+                 "interval":interval,"model":model,"count":count,
+                 "universe_snapshot":universe}
+        if runner is not None:
+            options["runner"]=runner
+        result=run_discovered_batch(root,**options)
         statuses=[item["status"] for item in result["items"]]
         if not statuses or any(s in ("requires_manual_review",) for s in statuses):
             return {"status":"requires_manual_review","offset":offset,"items":result["items"],
