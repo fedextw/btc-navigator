@@ -50,6 +50,9 @@ def supervise(state_dir, *, max_batches, hours=6, interval="1h",
         now = clock()
         slot = utc_slot(now, hours)
         if slot in attempted:
+            _status(state_dir,phase="error",slot=slot,
+                    completed_batches=sum(x["status"]=="completed" for x in outcomes),
+                    max_calls=max_calls)
             raise ValueError("UTC slot repeated; refusing duplicate billing")
         attempted.add(slot)
         try:
