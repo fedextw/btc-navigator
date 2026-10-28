@@ -11,6 +11,7 @@ from pathlib import Path
 from agent_single_instance import research_lock
 from agent_stage_four_multimarket import run_discovered_batch
 from agent_stage_four_universe import discover
+from agent_stage_four_readiness import check_batch_readiness
 
 def _save(path, data):
     path.parent.mkdir(parents=True,exist_ok=True)
@@ -46,6 +47,9 @@ def run_rotation(state_dir, *, slot, seeds=None, fetch=None, runner=None,
             universe=discover(fetch=fetch,limit=10,offset=0)
         if not universe["symbols"]:
             return {"status":"empty_universe","paper_only":True,"live_trading_authorized":False}
+        readiness=check_batch_readiness(root,universe["symbols"],interval=interval,count=count)
+        if readiness["status"]!="ready":
+            return dict(readiness,offset=offset,slot=slot)
         base={"schema":"agent-stage4-universe-cursor-v1","slot":slot,
               "offset":offset,"status":"reserved","symbols":list(universe["symbols"]),
               "paper_only":True,"live_trading_authorized":False}
