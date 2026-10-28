@@ -24,6 +24,14 @@ def delivery(state_dir, *, slot, execute=False, allow_model_calls=0,
     else:
         rotation={"status":"not_executed","paper_only":True,
                   "live_trading_authorized":False}
+    # A provider or injected rotation must explicitly prove it did not
+    # authorize live orders. Never certify an unsafe/unknown response.
+    if (rotation.get("paper_only") is not True or
+            rotation.get("live_trading_authorized") is not False or
+            rotation.get("status") not in (
+                "completed","already_processed","waiting_for_fresh_data",
+                "requires_manual_review","empty_universe","not_executed")):
+        raise ValueError("Unsafe or unrecognized Stage Four acceptance result")
     audit=audit_delivery(state_dir,interval=interval)
     return {"schema":"agent-stage4-local-acceptance-v1",
             "mode":"live_public_data_and_model" if execute else "offline_preflight",
