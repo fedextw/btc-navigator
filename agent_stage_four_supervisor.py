@@ -67,7 +67,9 @@ def supervise(state_dir, *, max_batches, hours=6, interval="1h",
         prior=json.loads(ledger.read_text(encoding="utf-8"))
         current_slot=utc_slot(clock(),hours)
         if prior.get("slot")==current_slot and prior.get("status")=="completed":
-            _status(state_dir,phase="waiting_for_next_slot",slot=current_slot,
+            # This invocation exits immediately: do not claim a waiting
+            # supervisor is alive when no worker will wake for the next slot.
+            _status(state_dir,phase="completed",slot=current_slot,
                     max_calls=max_calls)
             # A restart cannot replay work already billed during this slot.
             # Stop this invocation: a new explicit session is required to
