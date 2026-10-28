@@ -73,8 +73,11 @@ def supervise(state_dir, * max_batches, hours=6, interval="1h",
             elapsed = ((current.hour % hours) * 3600 +
                        current.minute * 60 + current.second)
             sleep(max(1, hours * 3600 - elapsed))
-    if outcomes and outcomes[-1]["status"] not in ("requires_manual_review","empty_universe"):
-        _status(state_dir,phase="completed",slot=outcomes[-1]["slot"],completed_batches=sum(x["status"]=="completed" for x in outcomes),max_calls=max_calls)
+    if outcomes:
+        final_status=outcomes[-1]["status"]
+        phase=(final_status if final_status in ("requires_manual_review","waiting_for_fresh_data")
+               else "error" if final_status=="empty_universe" else "completed")
+        _status(state_dir,phase=phase,slot=outcomes[-1]["slot"],completed_batches=sum(x["status"]=="completed" for x in outcomes),max_calls=max_calls)
     return {"schema": "agent-stage4-bounded-supervisor-v1",
             "max_model_calls_authorized": 10 * max_batches,
             "attempted_slots": outcomes, "paper_only": True,
