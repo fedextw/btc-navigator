@@ -47,6 +47,7 @@ def compare_models(csv_path, out_dir, *, models=("gpt-4.1-mini","gpt-5.4-mini"),
     result={"schema":"agent-model-comparison-v1","dataset_sha256":fingerprint,
             "cost_fraction":cost,"models":entries,
             "comparison_scope":"same_dataset_validation_only",
+            "real_provider_calls_verified":provider is None,
             "heldout_untouched":True,"paper_only":True,
             "live_trading_authorized":False,
             "note":"Model candidate quality comparison, not a forecast or live promotion."}
