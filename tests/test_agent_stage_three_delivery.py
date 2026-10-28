@@ -34,7 +34,7 @@ class StageThreeDeliveryTests(unittest.TestCase):
         self.assertTrue((self.root/"delivery"/"delivery_summary.json").exists())
     def test_delivery_requires_comparison_provider_provenance(self):
         trial={"market":{"csv":"frozen.csv","dataset_sha256":"a"*64},
-               "research":{"completed_generations":2},
+               "research":{"completed_generations":2,"reports":["prior-evidence.json"]},
                "provider_verified_by_live_calls":True,
                "acceptance":{"accepted":True}}
         comparison={"dataset_sha256":"a"*64,"models":[{"model":"one"},{"model":"two"}],
@@ -66,7 +66,7 @@ class StageThreeDeliveryTests(unittest.TestCase):
         self.assertEqual(report["research_resume_report"],"resumed-evidence.json")
     def test_mismatched_market_rejected(self):
         trial={"market":{"csv":"ignored","dataset_sha256":"a"*64},
-               "research":{"completed_generations":2},
+               "research":{"completed_generations":2,"reports":["prior-evidence.json"]},
                "provider_verified_by_live_calls":True,
                "acceptance":{"accepted":True}}
         compare={"dataset_sha256":"b"*64,"models":[]}
