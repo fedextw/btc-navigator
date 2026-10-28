@@ -61,8 +61,20 @@ def run_checkpointed(state_dir, prior_report, *, slot, runner=run_step,
         try:
             result=runner(out,selected_parent,symbol=symbol,interval=interval,
                           count=count,model=model)
-        except Exception:
-            # Keep reserved state. May have made billable call; never blindly retry.
+        except Exception as exc:
+            # Keep reserved state. A request might have been billed. Record only
+            # safe diagnostic metadata; never persist exception messages because
+            # upstream HTTP errors can contain sensitive request parameters.
+            # A missing market.csv is a clue, NOT proof no model call occurred.
+            _atomic(root/"failure-diagnostic.json", {
+                "schema":"agent-stage4-failure-diagnostic-v1",
+                "slot":slot,"symbol":symbol,"interval":interval,
+                "exception_type":type(exc).__name__,
+                "market_csv_saved":(out/"market.csv").is_file(),
+                "model_charge_status":"unknown",
+                "requires_manual_review":True,
+                "paper_only":True,"live_trading_authorized":False,
+                "failed_at_utc":datetime.now(timezone.utc).isoformat()})
             raise
         if result.get("paper_only") is not True or result.get("live_trading_authorized") is not False:
             raise ValueError("Unsafe research output")
