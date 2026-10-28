@@ -1,7 +1,7 @@
 import json
 import tempfile
 import unittest
-from datetime import datetime,timezone
+from datetime import datetime,timezone,timedelta
 from pathlib import Path
 from agent_stage_four_ui_status import load_openai_status
 from agent_stage_four_supervisor import supervise
@@ -35,6 +35,17 @@ class StageFourStatusTests(unittest.TestCase):
                 runner=lambda *a,**kw:{"status":"waiting_for_fresh_data"},
                 clock=lambda:datetime(2026,10,28,12,tzinfo=timezone.utc))
             self.assertEqual(load_openai_status(d)["state"],"waiting_for_fresh_data")
+    def test_old_running_record_is_not_claimed_active(self):
+        with tempfile.TemporaryDirectory() as d:
+            path=Path(d)/"stage4-openai"/"supervisor-status.json"
+            path.parent.mkdir()
+            path.write_text(json.dumps({
+                "schema":"agent-stage4-supervisor-status-v1",
+                "phase":"running","paper_only":True,
+                "live_trading_authorized":False,
+                "updated_at_utc":(datetime.now(timezone.utc)-timedelta(hours=3)).isoformat()
+            }),encoding="utf-8")
+            self.assertEqual(load_openai_status(d)["state"],"stale")
     def test_corrupted_status_is_not_displayed_as_success(self):
         with tempfile.TemporaryDirectory() as d:
             path=Path(d)/"stage4-openai"/"supervisor-status.json"
