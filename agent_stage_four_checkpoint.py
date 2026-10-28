@@ -40,14 +40,26 @@ def run_checkpointed(state_dir, prior_report, *, slot, runner=run_step,
             if previous.get("status")!="completed":
                 return {"status":"requires_manual_review","slot":slot,"paper_only":True,
                         "live_trading_authorized":False}
+        # Advance only from last successfully saved report.
+        selected_parent=prior_report
+        if previous is not None:
+            if (previous.get("symbol")!=symbol or previous.get("interval")!=interval
+                    or previous.get("model")!=model):
+                raise ValueError("Research lineage settings changed")
+            selected_parent=previous.get("report_path")
+            if not isinstance(selected_parent,str) or not Path(selected_parent).is_file():
+                raise ValueError("Previous completed report missing")
+        elif not isinstance(prior_report,(str,Path)):
+            raise ValueError("Initial immutable report required")
         # Slot reservation happens before external I/O or any billable model call.
         now=datetime.now(timezone.utc).isoformat()
         base={"schema":"agent-stage4-checkpoint-v1","slot":slot,"status":"reserved",
-              "started_at_utc":now,"paper_only":True,"live_trading_authorized":False}
+              "started_at_utc":now,"symbol":symbol,"interval":interval,"model":model,
+              "paper_only":True,"live_trading_authorized":False}
         _atomic(checkpoint,base)
         out=root/"steps"/slot
         try:
-            result=runner(out,prior_report,symbol=symbol,interval=interval,
+            result=runner(out,selected_parent,symbol=symbol,interval=interval,
                           count=count,model=model)
         except Exception:
             # Keep reserved state. May have made billable call; never blindly retry.
