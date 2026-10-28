@@ -22,7 +22,16 @@ def load_openai_status(state_root):
         updated=datetime.fromisoformat(stamp)
         if updated.tzinfo is None or updated.utcoffset()!=timedelta(0):
             raise ValueError("invalid timestamp timezone")
-        if phase in ("running","waiting_for_next_slot","waiting_for_fresh_data") and datetime.now(timezone.utc)-updated>timedelta(hours=2):
+        now=datetime.now(timezone.utc)
+        if updated>now+timedelta(minutes=5):
+            raise ValueError("future heartbeat")
+        completed=x.get("completed_batches",0)
+        authorized=x.get("max_model_calls_authorized",0)
+        if (type(completed) is not int or type(authorized) is not int
+                or completed<0 or authorized<0 or authorized>240
+                or completed*10>authorized):
+            raise ValueError("impossible research budget counters")
+        if phase in ("running","waiting_for_next_slot","waiting_for_fresh_data") and now-updated>timedelta(hours=2):
             return {"state":"stale","message":"OpenAI 研究紀錄超過兩小時未更新，不能確認程序仍在執行。",
                     "updated_at_utc":stamp}
         if phase not in ("running","waiting_for_next_slot","waiting_for_fresh_data","completed",
