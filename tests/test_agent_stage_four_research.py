@@ -19,6 +19,23 @@ class StageFourResearchTests(unittest.TestCase):
         path=self.root/(hashlib.sha256(raw).hexdigest()+".json")
         path.write_bytes(raw)
         return path
+    def test_new_market_bootstrap_creates_own_initial_report(self):
+        report={"candidate_count":1,"candidates":[{"status":"rejected"}],
+                "selected":None}
+        saved=self.root/"bootstrap_report.json"
+        saved.write_text(json.dumps(report),encoding="utf-8")
+        with patch("agent_stage_four_research.download_public_candles",
+                   return_value={"csv":"market.csv","candles":1600}) as download,patch(
+            "agent_stage_four_research.model_research",
+                   return_value={"report_path":str(saved)}) as first,patch(
+            "agent_stage_four_research.resume_from_report") as resume:
+            outcome=run_step(self.root/"newmarket",None,propose=lambda x:"[]")
+        self.assertEqual(first.call_count,1)
+        resume.assert_not_called()
+        self.assertIsNone(outcome["parent_report_sha256"])
+        self.assertEqual(outcome["generation"],"bootstrap")
+        self.assertEqual(outcome["step_status"],"no_qualified_candidate")
+        self.assertFalse(outcome["live_trading_authorized"])
     def test_reject_unhashed_parent_before_any_market_fetch(self):
         invalid=self.root/"prior.json"
         invalid.write_text("{}",encoding="utf-8")
