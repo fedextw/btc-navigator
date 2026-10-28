@@ -5,6 +5,7 @@ from datetime import datetime,timezone,timedelta
 from pathlib import Path
 from unittest.mock import patch
 from agent_stage_three_trial import run_stage_three_trial
+from agent_stage_three_delivery import run_delivery
 from agent_binance_public_candles import download_public_candles
 
 class FakeResponse:
@@ -65,6 +66,29 @@ class PublicResearchTrialTests(unittest.TestCase):
         # Second generation repeats same identity; rejection still must not attest.
         with self.assertRaises(ValueError):
             run_stage_three_trial(self.root/"stub",count=1600,fetch=self.fetch,propose=fake)
+    def test_delivery_real_research_paths_resume_on_reserved_future_window(self):
+        calls=[]
+        def proposal(prompt):
+            calls.append(prompt)
+            return json.dumps([{"family":"trend","lookback":10+len(calls),
+                                "slow":50,"rationale":"bounded independent hypothesis"}])
+        def comparer(model,prompt):
+            family="trend" if model=="baseline" else "mean_reversion"
+            return json.dumps([{"family":family,"lookback":10,
+                                "slow":50 if family=="trend" else 20,
+                                "rationale":"independent A/B"}])
+        result=run_delivery(self.root/"delivery",count=1600,fetch=self.fetch,
+                            propose=proposal,comparison_provider=comparer,
+                            comparison_models=("baseline","challenger"),
+                            resume_provider=proposal)
+        self.assertEqual(len(calls),3)
+        self.assertEqual(result["trial_completed_generations"],2)
+        self.assertTrue(Path(result["research_resume_report"]).exists())
+        self.assertFalse(result["engineering_accepted"])
+        self.assertFalse(result["live_trading_authorized"])
+        self.assertEqual(result["model_comparison_scope"],"same_dataset_validation_only")
+        self.assertTrue((self.root/"delivery"/"delivery_summary.json").exists())
+
     def test_rejects_reusing_existing_trial_location(self):
         (self.root/"existing").mkdir()
         (self.root/"existing"/"prior.txt").write_text("evidence")
