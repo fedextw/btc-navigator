@@ -23,13 +23,15 @@ def run_delivery(out, *, symbol="BTCUSDT", interval="1h", count=1600,
                                models=models,provider=comparison_provider)
     if trial["market"]["dataset_sha256"]!=comparison["dataset_sha256"]:
         raise ValueError("Comparison dataset differs from research trial")
-    accepted=trial["acceptance"]["accepted"]
+    comparison_verified=comparison.get("real_provider_calls_verified") is True
+    accepted=trial["acceptance"]["accepted"] and comparison_verified
     result={"schema":"agent-stage-three-delivery-v1",
             "dataset_sha256":trial["market"]["dataset_sha256"],
             "trial_summary":str(root/"trial"/"trial_summary.json"),
             "comparison_summary":str(root/"comparison"/"comparison_summary.json"),
             "trial_completed_generations":trial["research"]["completed_generations"],
             "trial_provider_verified":trial["provider_verified_by_live_calls"],
+            "comparison_provider_verified":comparison_verified,
             "trial_engineering_accepted":accepted,
             "comparison_models":[m["model"] for m in comparison["models"]],
             "engineering_accepted":accepted,
