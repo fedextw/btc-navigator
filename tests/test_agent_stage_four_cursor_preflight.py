@@ -3,7 +3,6 @@ import tempfile
 import unittest
 from pathlib import Path
 from agent_stage_four_supervisor import supervise
-from agent_stage_four_ui_status import load_openai_status
 
 class PersistedCursorPreflightTests(unittest.TestCase):
     def test_reserved_rotation_blocks_paid_supervisor_before_model_calls(self):
@@ -20,8 +19,7 @@ class PersistedCursorPreflightTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,"requires manual review"):
                 supervise(root,max_batches=1,runner=fake)
             self.assertEqual(calls,[])
-            self.assertEqual(load_openai_status(root.parent)["state"] if False else
-                             __import__("json").loads((root/"supervisor-status.json").read_text())["phase"],
+            self.assertEqual(json.loads((root/"supervisor-status.json").read_text(encoding="utf-8"))["phase"],
                              "requires_manual_review")
 
 if __name__=="__main__":
