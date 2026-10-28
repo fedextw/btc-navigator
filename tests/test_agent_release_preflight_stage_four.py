@@ -20,6 +20,23 @@ class StageFourReleaseGateTests(unittest.TestCase):
             with self.subTest(name=name):
                 self.assertIn(name, ESSENTIAL)
 
+    def test_runtime_logs_secrets_and_state_never_enter_release(self):
+        from agent_release_preflight import DANGEROUS
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            for name in ESSENTIAL:
+                (root/name).write_text("",encoding="utf-8")
+            (root/"START_BC_RESEARCH_TEST.bat").write_text(
+                'set "BTC_NAVIGATOR_STATE_DIR=%~dp0.agent-test-state"\\n'
+                'call "START.bat" --port 8591 --agent-research\\n',encoding="utf-8")
+            for name in DANGEROUS:
+                with self.subTest(path=name):
+                    target=root/name
+                    target.write_text("sensitive runtime content",encoding="utf-8")
+                    self.assertFalse(inspect(root)["ready"])
+                    self.assertIn(name,inspect(root)["runtime_or_secret_paths"])
+                    target.unlink()
+
     def test_missing_one_stage_four_module_blocks_release(self):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp)
