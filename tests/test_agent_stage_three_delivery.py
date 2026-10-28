@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 from agent_stage_three_delivery import run_delivery
+from agent_csv_research import read_candles
 
 class StageThreeDeliveryTests(unittest.TestCase):
     def setUp(self):
@@ -52,7 +53,7 @@ class StageThreeDeliveryTests(unittest.TestCase):
         comparison={"dataset_sha256":"a"*64,"models":[{"model":"one"},{"model":"two"}],
                     "real_provider_calls_verified":False}
         with patch("agent_stage_three_delivery.run_stage_three_trial",return_value=trial),patch(
-            "agent_stage_three_delivery.compare_models",return_value=comparison),patch(
+            "agent_stage_three_delivery.compare_models",side_effect=lambda csv_path,*a,**kw:dict(comparison,dataset_sha256=read_candles(csv_path)[1])),patch(
             "agent_stage_three_delivery.resume_from_report",return_value={"report_path":"recovered.json"}):
             report=run_delivery(self.root/"missing_model_proof")
         self.assertFalse(report["engineering_accepted"])
