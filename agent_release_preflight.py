@@ -27,6 +27,12 @@ def inspect(root):
     launcher = (root/"START_BC_RESEARCH_TEST.bat").read_text(encoding="utf-8") if not missing or (root/"START_BC_RESEARCH_TEST.bat").is_file() else ""
     isolated = 'BTC_NAVIGATOR_STATE_DIR=%~dp0.agent-test-state' in launcher and '--port 8591 --agent-research' in launcher
     included_runtime = [name for name in DANGEROUS if (root/name).exists()]
+    # Secrets/logs inside bundled subfolders are just as unsafe as root files.
+    # Detect them before publishing a Windows package.
+    for entry in root.rglob("*"):
+        if entry.name in DANGEROUS and entry != root/entry.name:
+            included_runtime.append(entry.relative_to(root).as_posix())
+    included_runtime = sorted(set(included_runtime))
     return {"ready": not missing and isolated and not included_runtime,
             "missing_files":missing, "independent_start":isolated,
             "runtime_or_secret_paths":included_runtime}
