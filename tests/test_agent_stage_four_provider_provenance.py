@@ -12,7 +12,8 @@ class ProductionSafetyProvenanceTests(unittest.TestCase):
             def real_runner(*args,**kwargs):
                 calls.append(1)
                 return {"status":"completed"}  # Missing explicit safety fields
-            with patch.object(module,"run_rotation",real_runner):
+            with patch.dict("os.environ",{"OPENAI_API_KEY":"CI_TEST_ONLY_NO_NETWORK"}), \
+                 patch.object(module,"run_rotation",real_runner):
                 with self.assertRaisesRegex(ValueError,"Unsafe or unknown"):
                     module.supervise(Path(d)/"stage4-openai",max_batches=1,
                         runner=real_runner,
