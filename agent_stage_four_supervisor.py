@@ -99,7 +99,9 @@ def supervise(state_dir, *, max_batches, hours=6, interval="1h",
                     max_calls=max_calls)
             raise
         except Exception:
-            _status(state_dir,phase="error",slot=slot,
+            # A failure after the request was sent may already have incurred
+            # model charges. Do not display a safely retryable generic error.
+            _status(state_dir,phase="requires_manual_review",slot=slot,
                     completed_batches=sum(x["status"]=="completed" for x in outcomes),
                     max_calls=max_calls)
             raise
