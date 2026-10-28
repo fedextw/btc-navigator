@@ -10,7 +10,11 @@ ESSENTIAL = ("START.bat", "START_BC_RESEARCH_TEST.bat", "bootstrap.py",
              "agent_backup.py", "agent_restore.py", "requirements.txt",
              "agent_stage5_cycle.py", "agent_stage5_batch.py", "agent_stage5_review.py",
              "agent_stage5_ranking.py", "agent_stage6_delivery_gate.py",
-             "agent_stage4_audit.py", "agent_forward_replay.py",
+             "agent_stage4_audit.py", "agent_stage_four_supervisor.py",
+             "agent_stage_four_rotation.py", "agent_stage_four_checkpoint.py",
+             "agent_stage_four_integrated_audit.py", "agent_stage_four_ui_status.py",
+             "agent_stage_four_readiness.py", "agent_stage_four_research.py",
+             "agent_forward_replay.py",
              "agent_forward_paper.py")
 DANGEROUS = (".local-state", ".launcher-venv", ".agent-test-state", ".env", "startup.log")
 
