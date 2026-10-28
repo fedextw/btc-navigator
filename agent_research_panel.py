@@ -65,6 +65,18 @@ def render(state_root):
     st.info(openai["message"])
     st.caption("狀態：" + openai["state"] + "；最近時段：" + openai.get("slot", "—"))
     st.caption("付費研究需要明確授權，研究結果不能視為實際成交。")
+
+    if openai["state"] in ("completed","waiting_for_next_slot","waiting_for_fresh_data"):
+        from agent_stage_four_integrated_audit import audit_delivery
+        try:
+            evidence=audit_delivery(Path(state_root)/"stage4-openai")
+            st.caption("已核驗研究報告：" + str(evidence["reports_verified"]) +
+                       "｜研究幣種：" + str(evidence["markets_checked"]) +
+                       "｜證據完整：" + ("是" if evidence["engineering_evidence_valid"] else "否"))
+        except (ValueError,KeyError,TypeError,OSError):
+            st.warning("研究證據讀取異常，不能判定本輪完成。")
+    st.caption("研究證據完整不等於前向模擬獲利，亦非實際成交。")
+
     st.caption("僅顯示獨立研究排程的結果。不提供新下單訊號、不修改模型，也不自動啟動排程。")
     # Read-only local diagnostic: show service state without exposing secrets.
     from agent_bc_diagnostic import inspect
