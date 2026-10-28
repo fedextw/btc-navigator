@@ -46,6 +46,16 @@ def main():
     result=delivery(args.state_dir,slot=args.slot,execute=args.execute,
        allow_model_calls=args.allow_model_calls,interval=args.interval,
        model=args.model,count=args.count)
-    print(json.dumps(result,ensure_ascii=False,indent=2))
+    out=Path(args.state_dir)/("stage4-live-acceptance.json" if args.execute
+                              else "stage4-preflight.json")
+    if out.exists():
+        p.error("Acceptance summary already exists; use a new state directory")
+    out.parent.mkdir(parents=True,exist_ok=True)
+    with out.open("x",encoding="utf-8") as handle:
+        json.dump(result,handle,ensure_ascii=False,sort_keys=True,
+                  indent=2,allow_nan=False)
+        handle.write("\\n")
+    print(json.dumps({"summary_path":str(out),"result":result},
+                     ensure_ascii=False,indent=2))
 if __name__=="__main__":
     main()
