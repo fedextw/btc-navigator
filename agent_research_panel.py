@@ -59,6 +59,12 @@ def load_status(state_root):
 def render(state_root):
     import streamlit as st
     st.title("AI Agent 研究中心")
+    from agent_stage_four_ui_status import load_openai_status
+    openai = load_openai_status(state_root)
+    st.subheader("OpenAI 第四階段研究")
+    st.info(openai["message"])
+    st.caption("狀態：" + openai["state"] + "；最近時段：" + openai.get("slot", "—"))
+    st.caption("付費研究需要明確授權，研究結果不能視為實際成交。")
     st.caption("僅顯示獨立研究排程的結果。不提供新下單訊號、不修改模型，也不自動啟動排程。")
     # Read-only local diagnostic: show service state without exposing secrets.
     from agent_bc_diagnostic import inspect
