@@ -16,7 +16,7 @@ ESSENTIAL = ("START.bat", "START_BC_RESEARCH_TEST.bat", "bootstrap.py",
              "agent_stage_four_readiness.py", "agent_stage_four_research.py",
              "agent_forward_replay.py",
              "agent_forward_paper.py")
-DANGEROUS = (".local-state", ".launcher-venv", ".agent-test-state", ".env", "startup.log")
+DANGEROUS = (".local-state", ".launcher-venv", ".agent-test-state", ".env", "startup.log",\n             "scanner.log", "agent-research.log", "openai-stage4.log", "stage4-openai",\n             ".env.local", ".env.production")
 
 
 def inspect(root):
