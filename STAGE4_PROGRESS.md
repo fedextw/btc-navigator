@@ -33,3 +33,6 @@ No merge to production. No live orders. No guaranteed positive expectancy.
 
 ## Multi-market isolated batch (new)
 `agent_stage_four_multimarket.py` now executes a bounded, explicitly selected batch of 1–10 USDT contract symbols. Each market/interval has its own state directory, checkpoint, last-generation report and failure status. One contract's failure does not overwrite other markets' lineage. Every contract requires its own valid previously created seed report; BTC research evidence must never serve as ETH evidence. This is a manual bounded market list, **not yet dynamic Binance-wide universe discovery**. No live trading.
+
+## New market independent bootstrap
+When a discovered Binance USD-M perpetual symbol has no previous research record, the isolated checkpoint worker now permits `prior_report=None` and starts its *own* first-generation model research. Each later slot resumes solely from that symbol's last immutable report. `--discover` no longer requires a `--seeds` mapping. This is a bounded page of at most 10 active markets; it does not yet automatically cycle through all pages, guarantee exchange data quality/liquidity, or prove live provider acceptance. Each new market bootstrap can consume one billable model call; manual, opt-in execution only.
