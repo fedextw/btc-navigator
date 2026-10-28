@@ -31,7 +31,7 @@ class FreshnessGateTests(unittest.TestCase):
     def test_modified_report_never_controls_freshness(self):
         self.make_checkpoint()
         folder=self.root/"markets"/self.symbol/"1h"
-        report=next(folder.glob("*.json"))
+        report=Path(json.loads((folder/"stage4-checkpoint.json").read_text(encoding="utf-8"))["report_path"])
         report.write_bytes(report.read_bytes()+b" ")
         with self.assertRaisesRegex(ValueError,"checksum"):
             check_batch_readiness(self.root,[self.symbol])
