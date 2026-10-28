@@ -20,14 +20,14 @@ class StageFourIntegratedAuditTests(unittest.TestCase):
         check=self.root/"markets"/"BTCUSDT"/"1h"/"stage4-checkpoint.json"
         check.parent.mkdir(parents=True)
         check.write_text(json.dumps({"schema":"agent-stage4-checkpoint-v1",
-              "symbol":"BTCUSDT","interval":"1h","status":"completed",
+              "symbol":"BTCUSDT","interval":"1h","status":"completed","slot":"SLOT01",
               "paper_only":True,"live_trading_authorized":False,
               "report_path":str(path)}))
         return path
     def rotation(self,status):
         path=self.root/"stage4-universe-cursor.json"
         path.write_text(json.dumps({"schema":"agent-stage4-universe-cursor-v1",
-              "status":status,"slot":"SLOT01","paper_only":True,
+              "status":status,"slot":"SLOT01","symbols":["BTCUSDT"],"paper_only":True,
               "live_trading_authorized":False}))
     def test_empty_cannot_claim_completion(self):
         result=audit_delivery(self.root)
@@ -49,6 +49,16 @@ class StageFourIntegratedAuditTests(unittest.TestCase):
         result=audit_delivery(self.root)
         self.assertFalse(result["engineering_evidence_valid"])
         self.assertIn("rotation_not_completed",result["issues"])
+    def test_other_slot_research_cannot_pass_current_rotation(self):
+        self.make_research()
+        self.rotation("completed")
+        check=self.root/"markets"/"BTCUSDT"/"1h"/"stage4-checkpoint.json"
+        entry=json.loads(check.read_text())
+        entry["slot"]="OLD_SLOT"
+        check.write_text(json.dumps(entry))
+        result=audit_delivery(self.root)
+        self.assertFalse(result["engineering_evidence_valid"])
+        self.assertIn("rotation_market_evidence_mismatch",result["issues"])
     def test_tampered_report_fails_closed(self):
         path=self.make_research()
         self.rotation("completed")
