@@ -69,6 +69,10 @@ def supervise(state_dir, *, max_batches, hours=6, interval="1h",
         if index + 1 < max_batches:
             # Sleep to the next UTC slot. After a normal data-wait we will
             # re-check on a later slot without consuming any model calls.
+            if status in ("completed","already_processed"):
+                _status(state_dir,phase="waiting_for_next_slot",slot=slot,
+                        completed_batches=sum(x["status"]=="completed" for x in outcomes),
+                        max_calls=max_calls)
             current = clock()
             elapsed = ((current.hour % hours) * 3600 +
                        current.minute * 60 + current.second)
