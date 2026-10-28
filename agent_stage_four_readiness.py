@@ -6,6 +6,7 @@ new CLOSED candles must exist. This time gate is a necessary condition, not a
 replacement for check_feedback_readiness on the downloaded dataset.
 """
 import json
+import hashlib
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -34,7 +35,11 @@ def check_batch_readiness(state_dir, symbols, *, interval="1h", count=1600, now=
         report_path = checkpoint.get("report_path")
         if not isinstance(report_path, str) or not Path(report_path).is_file():
             raise ValueError("Missing completed research report")
-        report = json.loads(Path(report_path).read_text(encoding="utf-8"))
+        parent = Path(report_path)
+        raw = parent.read_bytes()
+        if parent.suffix != ".json" or parent.stem != hashlib.sha256(raw).hexdigest():
+            raise ValueError("Previous report checksum does not match filename")
+        report = json.loads(raw)
         if report.get("schema") != "agent-orchestrator-v1" or report.get("paper_only") is not True:
             raise ValueError("Invalid previous research provenance")
         latest = datetime.fromisoformat(report["dataset_latest_utc"])
