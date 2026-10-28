@@ -53,10 +53,15 @@ class MultiMarketStage4Tests(unittest.TestCase):
     def test_unseeded_active_contracts_do_not_borrow_other_reports(self):
         with patch("agent_stage_four_multimarket.discover",
                    return_value={"symbols":["ETHUSDT"],"eligible_total":1}):
+            captured=[]
+            def fake(state, prior, **kw):
+                captured.append(prior)
+                return {"status":"completed"}
             result=run_discovered_batch(self.root,seed_reports={"BTCUSDT":"btc.json"},
-                                        slot="20261028T00Z")
+                                        slot="20261028T00Z",runner=fake)
         self.assertEqual(result["status"],"completed")
-        self.assertEqual(result["items"][0]["status"],"requires_manual_review")
+        self.assertEqual(captured,[None])
+        self.assertEqual(result["items"][0]["status"],"completed")
     def test_duplicate_symbol_rejected(self):
         with self.assertRaisesRegex(ValueError,"unique"):
             run_batch(self.root,symbols=("BTCUSDT","BTCUSDT"),
