@@ -29,6 +29,12 @@ class StageFourStatusTests(unittest.TestCase):
             supervise(state,max_batches=1,runner=lambda *a,**kw:{"status":"requires_manual_review"},
                 clock=lambda:datetime(2026,10,28,12,tzinfo=timezone.utc))
             self.assertEqual(load_openai_status(d)["state"],"requires_manual_review")
+    def test_wait_is_not_misrepresented_as_completed(self):
+        with tempfile.TemporaryDirectory() as d:
+            supervise(Path(d)/"stage4-openai",max_batches=1,
+                runner=lambda *a,**kw:{"status":"waiting_for_fresh_data"},
+                clock=lambda:datetime(2026,10,28,12,tzinfo=timezone.utc))
+            self.assertEqual(load_openai_status(d)["state"],"waiting_for_fresh_data")
     def test_corrupted_status_is_not_displayed_as_success(self):
         with tempfile.TemporaryDirectory() as d:
             path=Path(d)/"stage4-openai"/"supervisor-status.json"
