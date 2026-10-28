@@ -1,5 +1,7 @@
 import json
+import csv
 import tempfile
+from datetime import datetime,timedelta,timezone
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -10,9 +12,18 @@ class StageThreeDeliveryTests(unittest.TestCase):
         self.tmp=tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.root=Path(self.tmp.name)
+    def make_market(self):
+        path=self.root/"market.csv"
+        start=datetime(2025,1,1,tzinfo=timezone.utc)
+        with path.open("w",newline="",encoding="utf-8") as handle:
+            writer=csv.writer(handle)
+            writer.writerow(("time","open","high","low","close","volume"))
+            for i in range(1600):
+                price=100+i*.025
+                writer.writerow(((start+timedelta(hours=i)).isoformat(),price,price+1,price-1,price,100))
+        return path
     def test_one_command_same_market_no_live_promotion(self):
-        market=self.root/"market.csv"
-        market.write_text("frozen",encoding="utf-8")
+        market=self.make_market()
         trial={"market":{"csv":str(market),"dataset_sha256":"a"*64},
                "research":{"completed_generations":2,"reports":["prior-evidence.json"]},
                "provider_verified_by_live_calls":False,
@@ -25,7 +36,7 @@ class StageThreeDeliveryTests(unittest.TestCase):
                                 propose=lambda p:"[]",comparison_provider=lambda m,p:"[]")
         self.assertEqual(runner.call_count,1)
         self.assertEqual(matcher.call_count,1)
-        self.assertEqual(matcher.call_args.args[0],str(market))
+        self.assertTrue(str(matcher.call_args.args[0]).endswith("comparison_market.csv"))
         self.assertEqual(result["comparison_models"],["baseline","challenger"])
         self.assertFalse(result["profitability_proven"])
         self.assertFalse(result["live_trading_authorized"])
@@ -33,7 +44,8 @@ class StageThreeDeliveryTests(unittest.TestCase):
         self.assertFalse(result["comparison_provider_verified"])
         self.assertTrue((self.root/"delivery"/"delivery_summary.json").exists())
     def test_delivery_requires_comparison_provider_provenance(self):
-        trial={"market":{"csv":"frozen.csv","dataset_sha256":"a"*64},
+        market=self.make_market()
+        trial={"market":{"csv":str(market),"dataset_sha256":"a"*64},
                "research":{"completed_generations":2,"reports":["prior-evidence.json"]},
                "provider_verified_by_live_calls":True,
                "acceptance":{"accepted":True}}
@@ -47,7 +59,8 @@ class StageThreeDeliveryTests(unittest.TestCase):
         self.assertFalse(report["comparison_provider_verified"])
 
     def test_resume_requires_independent_market_and_never_claims_live_provider_from_stub(self):
-        trial={"market":{"csv":"frozen.csv","dataset_sha256":"a"*64},
+        market=self.make_market()
+        trial={"market":{"csv":str(market),"dataset_sha256":"a"*64},
                "research":{"completed_generations":2,"reports":["prior-evidence.json"]},
                "provider_verified_by_live_calls":True,
                "acceptance":{"accepted":True}}
@@ -65,7 +78,8 @@ class StageThreeDeliveryTests(unittest.TestCase):
         self.assertFalse(report["engineering_accepted"])
         self.assertEqual(report["research_resume_report"],"resumed-evidence.json")
     def test_mismatched_market_rejected(self):
-        trial={"market":{"csv":"ignored","dataset_sha256":"a"*64},
+        market=self.make_market()
+        trial={"market":{"csv":str(market),"dataset_sha256":"a"*64},
                "research":{"completed_generations":2,"reports":["prior-evidence.json"]},
                "provider_verified_by_live_calls":True,
                "acceptance":{"accepted":True}}
