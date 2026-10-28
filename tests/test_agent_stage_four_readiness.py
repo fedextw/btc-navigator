@@ -1,4 +1,5 @@
 import json
+import hashlib
 import tempfile
 import unittest
 from datetime import datetime, timezone, timedelta
@@ -19,14 +20,21 @@ class FreshnessGateTests(unittest.TestCase):
     def make_checkpoint(self, status="completed", latest="2026-10-01T00:00:00+00:00"):
         path = self.root / "markets" / self.symbol / "1h"
         path.mkdir(parents=True)
-        report = path / "prior.json"
-        report.write_text(json.dumps({"schema": "agent-orchestrator-v1",
-                                      "paper_only": True,
-                                      "dataset_latest_utc": latest}), encoding="utf-8")
+        raw=json.dumps({"schema":"agent-orchestrator-v1","paper_only":True,
+                        "dataset_latest_utc":latest}).encode("utf-8")
+        report=path/(hashlib.sha256(raw).hexdigest()+".json")
+        report.write_bytes(raw)
         (path / "stage4-checkpoint.json").write_text(json.dumps({
             "schema": "agent-stage4-checkpoint-v1", "status": status,
             "report_path": str(report)}), encoding="utf-8")
 
+    def test_modified_report_never_controls_freshness(self):
+        self.make_checkpoint()
+        folder=self.root/"markets"/self.symbol/"1h"
+        report=next(folder.glob("*.json"))
+        report.write_bytes(report.read_bytes()+b" ")
+        with self.assertRaisesRegex(ValueError,"checksum"):
+            check_batch_readiness(self.root,[self.symbol])
     def test_bootstrap_is_ready(self):
         result = check_batch_readiness(self.root, [self.symbol], now=datetime(
             2026, 10, 2, tzinfo=timezone.utc))
