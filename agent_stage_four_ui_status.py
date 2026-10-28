@@ -1,5 +1,6 @@
 """Read-only status of separately authorized OpenAI Stage 4 research."""
 import json
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 def load_openai_status(state_root):
@@ -15,6 +16,15 @@ def load_openai_status(state_root):
             x.get("live_trading_authorized") is not False):
             raise ValueError("invalid provenance")
         phase=x["phase"]
+        stamp=x.get("updated_at_utc")
+        if not isinstance(stamp,str):
+            raise ValueError("missing timestamp")
+        updated=datetime.fromisoformat(stamp)
+        if updated.tzinfo is None or updated.utcoffset()!=timedelta(0):
+            raise ValueError("invalid timestamp timezone")
+        if phase=="running" and datetime.now(timezone.utc)-updated>timedelta(hours=2):
+            return {"state":"stale","message":"OpenAI 研究紀錄超過兩小時未更新，不能確認程序仍在執行。",
+                    "updated_at_utc":stamp}
         if phase not in ("running","waiting_for_next_slot","waiting_for_fresh_data","completed",
                          "requires_manual_review","error"):
             raise ValueError("invalid phase")
