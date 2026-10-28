@@ -45,3 +45,18 @@ When a discovered Binance USD-M perpetual symbol has no previous research record
 
 ## Integrated stage-four evidence gate (new)
 `agent_stage_four_integrated_audit.py` reads the persisted rotation checkpoint, per-symbol immutable research reports, and optionally supplied prospective paper summaries. It refuses engineering acceptance when rotation has not completed, no reports exist or a symbol's research is incomplete/corrupted. A positive engineering audit is **not** forward validation: `forward_performance_validated=false`, `profitability_proven=false`, and `live_trading_authorized=false`. Unit integration tests use mocked evidence; actual independent real-time data collection and long-running operator acceptance remain outstanding.
+
+## Final local acceptance entry (new)
+`agent_stage_four_delivery.py` runs a no-billing read-only preflight by default. When a user explicitly provides `--execute --allow-model-calls 10`, it attempts at most one bounded active-contract rotation batch, including public Binance data requests and potentially **10 billable OpenAI model calls**. A valid local `OPENAI_API_KEY` is required. It reports saved evidence and does not imply independent forward-test success. This step is not run by CI.
+
+Safe preflight:
+```powershell
+py -3 agent_stage_four_delivery.py --state-dir ".local-state\\stage4-local" --slot S4-001
+```
+
+Explicitly billed full research batch (only with user approval, 10 model requests possible):
+```powershell
+py -3 agent_stage_four_delivery.py --state-dir ".local-state\\stage4-local" --slot S4-001 --execute --allow-model-calls 10
+```
+
+A successful CI run verifies mocked orchestration only. Actual multi-market API behavior, cost and stable prospective performance still require evidence from the user's machine. Never upload API keys.
