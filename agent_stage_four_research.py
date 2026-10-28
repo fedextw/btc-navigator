@@ -10,22 +10,25 @@ import json
 from pathlib import Path
 from agent_binance_public_candles import download_public_candles
 from agent_model_cycle import resume_from_report
+from agent_model_research import model_research
 from agent_llm_adapter import openai_compatible_model
 
 def run_step(workspace, prior_report, *, symbol="BTCUSDT", interval="1h",
              count=1600, model="gpt-4.1-mini", fetch=None, propose=None):
     root=Path(workspace)
-    parent=Path(prior_report)
-    if not parent.is_file():
-        raise FileNotFoundError("Prior immutable research report required")
-    raw=parent.read_bytes()
-    if parent.stem!=hashlib.sha256(raw).hexdigest() or parent.suffix!=".json":
-        raise ValueError("Prior report lacks content-address verification")
-    previous=json.loads(raw)
-    if (previous.get("paper_only") is not True or
-            previous.get("live_trading_authorized") is not False or
-            previous.get("schema")!="agent-orchestrator-v1"):
-        raise ValueError("Unsafe prior research provenance")
+    first_generation=prior_report is None
+    if not first_generation:
+        parent=Path(prior_report)
+        if not parent.is_file():
+            raise FileNotFoundError("Prior immutable research report required")
+        raw=parent.read_bytes()
+        if parent.stem!=hashlib.sha256(raw).hexdigest() or parent.suffix!=".json":
+            raise ValueError("Prior report lacks content-address verification")
+        previous=json.loads(raw)
+        if (previous.get("paper_only") is not True or
+                previous.get("live_trading_authorized") is not False or
+                previous.get("schema")!="agent-orchestrator-v1"):
+            raise ValueError("Unsafe prior research provenance")
     if root.exists() and any(root.iterdir()):
         raise FileExistsError("Stage-four workspace must be empty: never overwrite evidence")
     root.mkdir(parents=True,exist_ok=True)
@@ -33,13 +36,19 @@ def run_step(workspace, prior_report, *, symbol="BTCUSDT", interval="1h",
                                     interval=interval,count=count,fetch=fetch)
     provider=propose if propose is not None else (
         lambda prompt:openai_compatible_model(prompt,model=model))
-    # resume_from_report checks chronological independence before invoking LLM.
-    result=resume_from_report(snapshot["csv"],root/"reports",provider,
-                              model_id=model,previous_report_path=parent)
+    if first_generation:
+        result=model_research(snapshot["csv"],root/"reports",provider,
+                              model_id=model)
+        parent_hash=None
+    else:
+        result=resume_from_report(snapshot["csv"],root/"reports",provider,
+                                  model_id=model,previous_report_path=parent)
+        parent_hash=result["parent_report_sha256"]
     report=json.loads(Path(result["report_path"]).read_text(encoding="utf-8"))
     summary={"schema":"agent-stage4-research-step-v1",
              "market":snapshot,"model":model,"report_path":result["report_path"],
-             "parent_report_sha256":result["parent_report_sha256"],
+             "parent_report_sha256":parent_hash,
+             "generation":"bootstrap" if first_generation else "feedback",
              "model_provider_path":"live" if propose is None else "injected_test",
              "candidate_count":report["candidate_count"],
              "qualified_count":sum(c.get("status")=="validation_pass" for c in report["candidates"]),
