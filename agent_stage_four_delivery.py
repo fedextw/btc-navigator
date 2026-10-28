@@ -1,0 +1,51 @@
+"""Stage-four local acceptance: read-only preflight or explicitly billed live batch.
+
+No CI invocation of live APIs, credentials, order routing or promotion.
+"""
+import argparse
+import json
+import os
+from pathlib import Path
+from agent_stage_four_rotation import run_rotation
+from agent_stage_four_integrated_audit import audit_delivery
+
+def delivery(state_dir, *, slot, execute=False, allow_model_calls=0,
+             interval="1h",model="gpt-4.1-mini",count=1600,
+             fetch=None,runner=None):
+    if execute:
+        # Rotation currently selects up to 10 markets with one model call
+        # apiece. Explicitly acknowledge that upper bound before any I/O.
+        if type(allow_model_calls) is not int or allow_model_calls!=10:
+            raise ValueError("Executing full rotation requires --allow-model-calls 10")
+        if not os.getenv("OPENAI_API_KEY") and runner is None:
+            raise ValueError("OPENAI_API_KEY missing; no market request made")
+        rotation=run_rotation(state_dir,slot=slot,interval=interval,
+                             model=model,count=count,fetch=fetch,runner=runner)
+    else:
+        rotation={"status":"not_executed","paper_only":True,
+                  "live_trading_authorized":False}
+    audit=audit_delivery(state_dir,interval=interval)
+    return {"schema":"agent-stage4-local-acceptance-v1",
+            "mode":"live_public_data_and_model" if execute else "offline_preflight",
+            "rotation_status":rotation["status"],"rotation":rotation,
+            "audit":audit,"engineering_evidence_valid":audit["engineering_evidence_valid"],
+            "real_forward_paper_validated":False,
+            "profitability_proven":False,"automatic_promotion":False,
+            "paper_only":True,"live_trading_authorized":False}
+
+def main():
+    p=argparse.ArgumentParser(description="Stage-four offline preflight or explicitly billed public-market AI trial")
+    p.add_argument("--state-dir",required=True)
+    p.add_argument("--slot",required=True)
+    p.add_argument("--execute",action="store_true")
+    p.add_argument("--allow-model-calls",type=int,default=0)
+    p.add_argument("--interval",default="1h")
+    p.add_argument("--model",default="gpt-4.1-mini")
+    p.add_argument("--count",type=int,default=1600)
+    args=p.parse_args()
+    result=delivery(args.state_dir,slot=args.slot,execute=args.execute,
+       allow_model_calls=args.allow_model_calls,interval=args.interval,
+       model=args.model,count=args.count)
+    print(json.dumps(result,ensure_ascii=False,indent=2))
+if __name__=="__main__":
+    main()
