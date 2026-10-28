@@ -15,10 +15,10 @@
 In a **fresh checkout** with configured `OPENAI_API_KEY`:
 
 ```powershell
-py -3 agent_stage_three_delivery.py --out ".local-state\stage3-delivery-01" --symbol BTCUSDT --interval 1h --count 1600 --model gpt-4.1-mini --comparison-models gpt-4.1-mini gpt-5.4-mini
+py -3 agent_stage_three_delivery.py --out ".local-state\stage3-delivery-01" --symbol BTCUSDT --interval 1h --count 1600 --model gpt-4.1-mini --comparison-models gpt-4.1-mini gpt-5.4-mini --resume-csv "fresh-independent-data.csv"
 ```
 
-This action downloads public market data and performs **four potentially billable OpenAI model research calls** (two-generation trial + two model comparison calls). If the provider returns more/fewer valid generations or a provider call fails, the script fails closed. The user's own API access/billing must be configured locally; CI cannot prove real-provider connectivity. Never upload API secrets.
+This action downloads public market data and performs **five potentially billable OpenAI model research calls** (two-generation trial + two model comparison calls). If the provider returns more/fewer valid generations or a provider call fails, the script fails closed. The user's own API access/billing must be configured locally; CI cannot prove real-provider connectivity. Never upload API secrets.
 
 Review `.local-state\stage3-delivery-01\delivery_summary.json`, `trial/trial_summary.json`, `trial/reports/`, `comparison/comparison_summary.json`, and `comparison/model_*/`.
 
@@ -32,6 +32,6 @@ Review `.local-state\stage3-delivery-01\delivery_summary.json`, `trial/trial_sum
 1. Windows/Linux latest GitHub Actions success on final commit
 2. User-side genuine OpenAI model trial using local credentials
 3. User-side model A/B including newer model access, availability and structured-output compatibility
-4. Reboot/restart using a prior immutable failed report and **fresh chronologically independent candles**
+4. Local resume test using a prior immutable failed report and **fresh chronologically independent candles**. Supply `--resume-csv`; without this, delivery engineering acceptance deliberately remains false. A truly fresh dataset with validation starting after the earlier data cutoff is needed; do not fabricate or reuse the old historical window.
 
 Do not mark Stage 3 fully delivered until blocking evidence has been collected. Do not claim profitable trading from engineering acceptance.
