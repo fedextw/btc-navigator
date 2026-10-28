@@ -19,7 +19,7 @@ class SupervisorUnsafeResultTests(unittest.TestCase):
                           clock=lambda:datetime(2026,10,28,12,tzinfo=timezone.utc),
                           sleep=lambda seconds:None)
             self.assertEqual(len(calls),1)
-            self.assertEqual(load_openai_status(d)["state"],"error")
+            self.assertEqual(load_openai_status(d)["state"],"requires_manual_review")
 
     def test_live_trading_permission_never_accepted(self):
         with tempfile.TemporaryDirectory() as d:
@@ -28,7 +28,7 @@ class SupervisorUnsafeResultTests(unittest.TestCase):
                           runner=lambda *a,**k:{"status":"completed",
                           "paper_only":False,"live_trading_authorized":True},
                           clock=lambda:datetime(2026,10,28,12,tzinfo=timezone.utc))
-            self.assertEqual(load_openai_status(d)["state"],"error")
+            self.assertEqual(load_openai_status(d)["state"],"requires_manual_review")
 
 if __name__=="__main__":
     unittest.main()
