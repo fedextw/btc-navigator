@@ -5,11 +5,13 @@ The final acceptance is engineering evidence, NOT profitable strategy approval.
 """
 import argparse
 import json
+import csv
 from pathlib import Path
 from agent_stage_three_trial import run_stage_three_trial
 from agent_model_comparison import compare_models
 from agent_model_cycle import resume_from_report
 from agent_llm_adapter import openai_compatible_model
+from agent_csv_research import read_candles
 
 def run_delivery(out, *, symbol="BTCUSDT", interval="1h", count=1600,
                  model="gpt-4.1-mini", comparison_models=None,
@@ -30,10 +32,19 @@ def run_delivery(out, *, symbol="BTCUSDT", interval="1h", count=1600,
     trial=run_stage_three_trial(root/"trial",symbol=symbol,interval=interval,
                                 count=count,model=model,fetch=fetch,propose=propose,
                                 generation_cutoffs=cutoffs)
-    comparison=compare_models(trial["market"]["csv"],root/"comparison",
+    # Compare models only on earliest research prefix; reserve later windows.
+    candles,_=read_candles(trial["market"]["csv"])
+    comparison_csv=root/"comparison_market.csv"
+    with comparison_csv.open("w",newline="",encoding="utf-8") as handle:
+        writer=csv.writer(handle)
+        writer.writerow(("time","open","high","low","close","volume"))
+        for bar in candles[:cutoffs[0]]:
+            writer.writerow((bar[0].isoformat(),*bar[1:]))
+    comparison=compare_models(comparison_csv,root/"comparison",
                                models=models,provider=comparison_provider)
-    if trial["market"]["dataset_sha256"]!=comparison["dataset_sha256"]:
-        raise ValueError("Comparison dataset differs from research trial")
+    comparison_hash=read_candles(comparison_csv)[1]
+    if comparison_hash!=comparison["dataset_sha256"]:
+        raise ValueError("Comparison dataset differs from frozen comparison prefix")
     comparison_verified=comparison.get("real_provider_calls_verified") is True
     resume=None
     if resume_csv is None:
@@ -49,6 +60,8 @@ def run_delivery(out, *, symbol="BTCUSDT", interval="1h", count=1600,
     accepted=trial["acceptance"]["accepted"] and comparison_verified and recovery_verified
     result={"schema":"agent-stage-three-delivery-v1",
             "dataset_sha256":trial["market"]["dataset_sha256"],
+            "comparison_dataset_sha256":comparison_hash,
+            "comparison_train_cutoff":cutoffs[0],
             "trial_summary":str(root/"trial"/"trial_summary.json"),
             "comparison_summary":str(root/"comparison"/"comparison_summary.json"),
             "trial_completed_generations":trial["research"]["completed_generations"],
