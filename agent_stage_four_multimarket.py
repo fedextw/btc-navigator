@@ -43,9 +43,9 @@ def run_batch(state_dir, *, symbols, seed_reports, slot, interval="1h",
 
 def run_discovered_batch(state_dir, *, seed_reports, slot, offset=0, fetch=None,
                          interval="1h", model="gpt-4.1-mini", count=1600,
-                         runner=run_checkpointed):
+                         runner=run_checkpointed, universe_snapshot=None):
     """Explore active Binance contracts, without borrowing another symbol's seed."""
-    universe=discover(fetch=fetch,limit=10,offset=offset)
+    universe=universe_snapshot if universe_snapshot is not None else discover(fetch=fetch,limit=10,offset=offset)
     if not isinstance(seed_reports,dict):
         raise ValueError("Invalid seed map")
     eligible=list(universe["symbols"])
