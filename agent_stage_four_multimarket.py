@@ -11,14 +11,14 @@ from agent_symbol_validation import valid_symbol
 from agent_stage_four_universe import discover
 
 def run_batch(state_dir, *, symbols, seed_reports, slot, interval="1h",
-              model="gpt-4.1-mini", count=1600, runner=run_checkpointed):
+              model="gpt-4.1-mini", count=1600, runner=run_checkpointed, bootstrap_missing=False):
     if (not isinstance(symbols,(tuple,list)) or not 1<=len(symbols)<=10
             or len(symbols)!=len(set(symbols))
             or any(not isinstance(s,str) or not valid_symbol(s) for s in symbols)):
         raise ValueError("Provide 1-10 unique valid USDT contracts")
-    if not isinstance(seed_reports,dict) or any(
+    if not isinstance(seed_reports,dict) or (not bootstrap_missing and any(
             not isinstance(seed_reports.get(s),str) or not seed_reports[s]
-            for s in symbols):
+            for s in symbols)):
         raise ValueError("Each contract requires its own immutable seed report")
     if interval not in ("15m","1h","4h"):
         raise ValueError("Invalid research interval")
@@ -30,7 +30,7 @@ def run_batch(state_dir, *, symbols, seed_reports, slot, interval="1h",
         # Symbol and interval cannot affect other checkpoints or output files.
         isolated=Path(state_dir)/"markets"/symbol/interval
         try:
-            record=runner(isolated,seed_reports[symbol],slot=slot,symbol=symbol,
+            record=runner(isolated,seed_reports.get(symbol),slot=slot,symbol=symbol,
                           interval=interval,model=model,count=count)
             items.append({"symbol":symbol,"status":record["status"],
                           "paper_only":True,"live_trading_authorized":False})
@@ -46,14 +46,16 @@ def run_discovered_batch(state_dir, *, seed_reports, slot, offset=0, fetch=None,
                          runner=run_checkpointed):
     """Explore active Binance contracts, without borrowing another symbol's seed."""
     universe=discover(fetch=fetch,limit=10,offset=offset)
-    eligible=[s for s in universe["symbols"] if isinstance(seed_reports,dict)
-              and isinstance(seed_reports.get(s),str) and seed_reports[s]]
+    if not isinstance(seed_reports,dict):
+        raise ValueError("Invalid seed map")
+    eligible=list(universe["symbols"])
     if not eligible:
         return {"schema":"agent-stage4-discovered-batch-v1","universe":universe,
-                "items":[],"status":"no_seeded_active_contracts",
+                "items":[],"status":"no_active_contracts",
                 "paper_only":True,"live_trading_authorized":False}
     batch=run_batch(state_dir,symbols=eligible,seed_reports=seed_reports,slot=slot,
-                    interval=interval,model=model,count=count,runner=runner)
+                    interval=interval,model=model,count=count,runner=runner,
+                    bootstrap_missing=True)
     return {"schema":"agent-stage4-discovered-batch-v1","universe":universe,
             "items":batch["items"],"status":"completed",
             "paper_only":True,"live_trading_authorized":False}
