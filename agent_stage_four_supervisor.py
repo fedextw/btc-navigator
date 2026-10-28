@@ -38,6 +38,8 @@ def supervise(state_dir, *, max_batches, hours=6, interval="1h",
         raise ValueError("Must explicitly cap model batches to 1..24")
     if hours not in (1, 2, 3, 4, 6, 8, 12, 24):
         raise ValueError("Invalid UTC period")
+    if interval not in ("15m", "1h", "4h") or type(count) is not int or not 100 <= count <= 1600:
+        raise ValueError("Invalid interval or closed-candle history limit")
     if not os.getenv("OPENAI_API_KEY") and runner is run_rotation:
         raise ValueError("OPENAI_API_KEY is required before starting paid AI research")
     clock = clock or (lambda: datetime.now(timezone.utc))
