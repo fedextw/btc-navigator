@@ -19,6 +19,11 @@ def run_batch(state_dir, *, symbols, seed_reports, slot, interval="1h",
             not isinstance(seed_reports.get(s),str) or not seed_reports[s]
             for s in symbols):
         raise ValueError("Each contract requires its own immutable seed report")
+    if interval not in ("15m","1h","4h"):
+        raise ValueError("Invalid research interval")
+    if not isinstance(slot,str) or not 1<=len(slot)<=48 or any(
+            not (c.isalnum() or c in "-_") for c in slot):
+        raise ValueError("Invalid research slot")
     items=[]
     for symbol in symbols:
         # Symbol and interval cannot affect other checkpoints or output files.
