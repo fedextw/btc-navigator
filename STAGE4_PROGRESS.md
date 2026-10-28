@@ -27,3 +27,6 @@ No merge to production. No live orders. No guaranteed positive expectancy.
 
 ## Checkpointed explicit worker (new)
 `agent_stage_four_checkpoint.py` accepts a unique `--slot` per research attempt, applies an OS process lock and reserves the slot before external I/O. The same slot is never rerun. If a run fails midway, a subsequent invocation returns `requires_manual_review` instead of replaying a potentially billed model request. This is deliberate fail-closed behavior, not automatic recovery. No unattended scheduling has been enabled yet.
+
+## Opt-in bounded UTC scheduler
+`agent_stage_four_periodic.py` reuses the same checkpointed research worker. It rounds timestamps into 1/2/3/4/6/8/12/24h UTC slots, supports `--once` and a bounded `--max-cycles`, and halts when a slot requires manual review. Nothing starts on boot and no third-party schedule is created. Reuse of a completed slot does not repeat model billing. A single fixed immutable prior report remains the explicit research parent in this initial scheduler; automatic parent advancement and symbol rotation are outstanding.
