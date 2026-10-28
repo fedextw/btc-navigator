@@ -39,6 +39,7 @@ class ModelComparisonTests(unittest.TestCase):
             self.assertIn("profit_factor",entry["best_validation"])
             self.assertIn("max_drawdown_pct",entry["best_validation"])
         self.assertFalse(result["live_trading_authorized"])
+        self.assertFalse(result["real_provider_calls_verified"])
         for entry in result["models"]:
             report=json.loads(Path(entry["report_path"]).read_text(encoding="utf-8"))
             self.assertEqual(report["dataset_sha256"],result["dataset_sha256"])
