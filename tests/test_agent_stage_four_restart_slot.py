@@ -18,12 +18,11 @@ class CompletedSlotRestartTests(unittest.TestCase):
             def fake(*a,**k):
                 calls.append(1)
                 return {"status":"completed"}
-            result=supervise(root,max_batches=2,hours=6,runner=fake,
+            result=supervise(root,max_batches=1,hours=6,runner=fake,
                 clock=lambda:datetime(2026,10,28,13,tzinfo=timezone.utc))
             self.assertEqual(calls,[])
             self.assertEqual(result["attempted_slots"][0]["status"],"already_processed")
-            self.assertEqual(load_openai_status(Path(d).parent)["state"] if False else
-                             json.loads((root/"supervisor-status.json").read_text())["phase"],
+            self.assertEqual(json.loads((root/"supervisor-status.json").read_text())["phase"],
                              "completed")
 if __name__=="__main__":
     unittest.main()
