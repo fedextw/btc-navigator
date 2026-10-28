@@ -31,7 +31,7 @@ class StageThreeDeliveryTests(unittest.TestCase):
                "acceptance":{"accepted":False}}
         comparison={"dataset_sha256":"a"*64,"models":[{"model":"baseline"},{"model":"challenger"}]}
         with patch("agent_stage_three_delivery.run_stage_three_trial",return_value=trial) as runner,patch(
-            "agent_stage_three_delivery.compare_models",return_value=comparison) as matcher,patch(
+            "agent_stage_three_delivery.compare_models",side_effect=lambda csv_path,*a,**kw:dict(comparison,dataset_sha256=read_candles(csv_path)[1])) as matcher,patch(
             "agent_stage_three_delivery.resume_from_report",return_value={"report_path":"recovered.json"}):
             result=run_delivery(self.root/"delivery",comparison_models=("baseline","challenger"),
                                 propose=lambda p:"[]",comparison_provider=lambda m,p:"[]")
@@ -69,7 +69,7 @@ class StageThreeDeliveryTests(unittest.TestCase):
                     "real_provider_calls_verified":True}
         resumed={"report_path":"resumed-evidence.json","live_trading_authorized":False}
         with patch("agent_stage_three_delivery.run_stage_three_trial",return_value=trial),patch(
-            "agent_stage_three_delivery.compare_models",return_value=comparison),patch(
+            "agent_stage_three_delivery.compare_models",side_effect=lambda csv_path,*a,**kw:dict(comparison,dataset_sha256=read_candles(csv_path)[1])),patch(
             "agent_stage_three_delivery.resume_from_report",return_value=resumed) as recovery:
             report=run_delivery(self.root/"recovered",resume_csv="new-market.csv",
                                 resume_provider=lambda prompt:"[]")
