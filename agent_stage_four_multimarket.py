@@ -64,15 +64,15 @@ def main():
     p=argparse.ArgumentParser(description="Bounded per-market paper research batch")
     p.add_argument("--state-dir",required=True)
     p.add_argument("--slot",required=True)
-    p.add_argument("--seeds",required=True,help="JSON symbol-to-immutable-report mapping")
+    p.add_argument("--seeds",help="Optional JSON symbol-to-immutable-report mapping; unseeded discoveries bootstrap independently")
     p.add_argument("--symbols",nargs="+")
-    p.add_argument("--discover",action="store_true",help="Only active public Binance USD-M markets with existing seeds")
+    p.add_argument("--discover",action="store_true",help="Discover active USD-M contracts; unseeded contracts start first generation")
     p.add_argument("--offset",type=int,default=0)
     p.add_argument("--interval",default="1h")
     p.add_argument("--model",default="gpt-4.1-mini")
     p.add_argument("--count",type=int,default=1600)
     a=p.parse_args()
-    mapping=json.loads(Path(a.seeds).read_text(encoding="utf-8"))
+    mapping=json.loads(Path(a.seeds).read_text(encoding="utf-8")) if a.seeds else {}
     result=(run_discovered_batch(a.state_dir,seed_reports=mapping,slot=a.slot,
               offset=a.offset,interval=a.interval,model=a.model,count=a.count)
             if a.discover else run_batch(a.state_dir,symbols=a.symbols,
