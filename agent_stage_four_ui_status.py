@@ -15,12 +15,13 @@ def load_openai_status(state_root):
             x.get("live_trading_authorized") is not False):
             raise ValueError("invalid provenance")
         phase=x["phase"]
-        if phase not in ("running","waiting_for_fresh_data","completed",
+        if phase not in ("running","waiting_for_next_slot","waiting_for_fresh_data","completed",
                          "requires_manual_review","error"):
             raise ValueError("invalid phase")
         return {"state":phase,
                 "message":{"running":"OpenAI 跨代研究程序正在執行",
                   "waiting_for_fresh_data":"等待新的獨立驗證資料，不會浪費模型費用",
+                  "waiting_for_next_slot":"本批研究完成，等待下一個排程時段",
                   "completed":"已完成本次授權研究批次",
                   "requires_manual_review":"研究中斷，需要檢查紀錄後才能繼續",
                   "error":"OpenAI 研究發生錯誤，停止付費重試"}[phase],
