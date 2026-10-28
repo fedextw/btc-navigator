@@ -34,6 +34,15 @@ class OpenAISupervisorTests(unittest.TestCase):
         for value in (0,25,True,1.5):
             with self.assertRaises(ValueError):
                 supervise(".",max_batches=value)
+    def test_invalid_market_parameters_rejected_before_any_research(self):
+        for params in ({"interval":"1d"},{"interval":"bad"},{"count":99},
+                       {"count":1601},{"count":True}):
+            calls=[]
+            with self.assertRaises(ValueError):
+                supervise(self.root if hasattr(self,"root") else ".",
+                          max_batches=1,runner=lambda *a,**k:calls.append(1),
+                          **params)
+            self.assertEqual(calls,[])
     def test_launcher_does_not_autorun_paid_model(self):
         text=(Path(__file__).resolve().parents[1]/"launch.py").read_text(encoding="utf-8")
         self.assertIn('default=0, help="明確授權 B+C OpenAI',text)
