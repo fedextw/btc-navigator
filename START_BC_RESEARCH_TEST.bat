@@ -46,11 +46,15 @@ if not exist "%BTC_NAVIGATOR_STATE_DIR%" mkdir "%BTC_NAVIGATOR_STATE_DIR%"
 set "BC_OPENAI_ARGS="
 if defined OPENAI_API_KEY (
   echo.
-  echo OpenAI paid research is available. Maximum 10 model calls for this session.
-  echo Paper research only. No live orders.
-  choice /C YN /N /M "Authorize up to 10 paid OpenAI calls now? [Y/N]: "
-  if errorlevel 2 (
+  echo OpenAI paid paper research is optional. No live orders.
+  echo [1] One batch, at most 10 paid OpenAI model calls.
+  echo [4] Four scheduled batches, at most 40 paid calls total.
+  echo [N] No paid research. Default paper research continues.
+  choice /C 14N /N /M "Authorize paid research budget [1/4/N]: "
+  if errorlevel 3 (
     echo OpenAI paid research not authorized; normal paper research continues.
+  ) else if errorlevel 2 (
+    set "BC_OPENAI_ARGS=--openai-batches 4 --openai-ack-calls 40"
   ) else (
     set "BC_OPENAI_ARGS=--openai-batches 1 --openai-ack-calls 10"
   )
