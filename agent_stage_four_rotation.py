@@ -58,7 +58,8 @@ def run_rotation(state_dir, *, slot, seeds=None, fetch=None, runner=None,
             options["runner"]=runner
         result=run_discovered_batch(root,**options)
         statuses=[item["status"] for item in result["items"]]
-        if not statuses or any(s in ("requires_manual_review",) for s in statuses):
+        permitted={"completed","already_completed"}
+        if not statuses or any(s not in permitted for s in statuses):
             return {"status":"requires_manual_review","offset":offset,"items":result["items"],
                     "paper_only":True,"live_trading_authorized":False}
         next_offset=0 if not universe["has_more"] else offset+len(universe["symbols"])
