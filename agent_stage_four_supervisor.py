@@ -61,24 +61,6 @@ def supervise(state_dir, *, max_batches, hours=6, interval="1h",
     outcomes = []
     max_calls=10*max_batches
     _status(state_dir,phase='running',max_calls=max_calls)
-    # A restart with a previously completed slot must not consume an
-    # authorized batch on the same UTC slot. The persisted cursor is the ledger.
-    if ledger.is_file():
-        prior=json.loads(ledger.read_text(encoding="utf-8"))
-        current_slot=utc_slot(clock(),hours)
-        if prior.get("slot")==current_slot and prior.get("status")=="completed":
-            # This invocation exits immediately: do not claim a waiting
-            # supervisor is alive when no worker will wake for the next slot.
-            _status(state_dir,phase="completed",slot=current_slot,
-                    max_calls=max_calls)
-            # A restart cannot replay work already billed during this slot.
-            # Stop this invocation: a new explicit session is required to
-            # authorize additional future work.
-            return {"schema":"agent-stage4-bounded-supervisor-v1",
-                    "max_model_calls_authorized":max_calls,
-                    "attempted_slots":[{"slot":current_slot,"status":"already_processed"}],
-                    "paper_only":True,"automatic_promotion":False,
-                    "live_trading_authorized":False}
     for index in range(max_batches):
         now = clock()
         slot = utc_slot(now, hours)
@@ -102,9 +84,17 @@ def supervise(state_dir, *, max_batches, hours=6, interval="1h",
                 attempted.add(slot)
                 outcomes.append({"slot":slot,"status":"already_processed"})
                 if index+1<max_batches:
+                    _status(state_dir,phase="waiting_for_next_slot",slot=slot,max_calls=max_calls)
                     current=clock()
                     elapsed=(current.hour % hours)*3600+current.minute*60+current.second
-                    sleep(max(1,hours*3600-elapsed))
+                    delay=max(1,hours*3600-elapsed)
+                    if sleep is time.sleep:
+                        deadline=time.monotonic()+delay
+                        while time.monotonic()<deadline:
+                            _status(state_dir,phase="waiting_for_next_slot",slot=slot,max_calls=max_calls)
+                            time.sleep(min(60,max(0,deadline-time.monotonic())))
+                    else:
+                        sleep(delay)
                     continue
                 break
         attempted.add(slot)
