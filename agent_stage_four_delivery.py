@@ -43,13 +43,14 @@ def main():
     p.add_argument("--model",default="gpt-4.1-mini")
     p.add_argument("--count",type=int,default=1600)
     args=p.parse_args()
-    result=delivery(args.state_dir,slot=args.slot,execute=args.execute,
-       allow_model_calls=args.allow_model_calls,interval=args.interval,
-       model=args.model,count=args.count)
+    # Refuse destination collisions BEFORE any potentially billable model I/O.
     out=Path(args.state_dir)/("stage4-live-acceptance.json" if args.execute
                               else "stage4-preflight.json")
     if out.exists():
         p.error("Acceptance summary already exists; use a new state directory")
+    result=delivery(args.state_dir,slot=args.slot,execute=args.execute,
+       allow_model_calls=args.allow_model_calls,interval=args.interval,
+       model=args.model,count=args.count)
     out.parent.mkdir(parents=True,exist_ok=True)
     with out.open("x",encoding="utf-8") as handle:
         json.dump(result,handle,ensure_ascii=False,sort_keys=True,
