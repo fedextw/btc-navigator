@@ -118,10 +118,15 @@ class ModelCycleTests(unittest.TestCase):
         initial=model_research(smaller,self.root/"initial",proposal,model_id="mocked")
         prior=json.loads(Path(initial["report_path"]).read_text(encoding="utf-8"))
         self.assertIsNone(prior["selected"])
-        resumed=resume_from_report(self.data,self.root/"resumed",proposal,model_id="mocked",
+        prompts=[]
+        def recording_model(prompt):
+            prompts.append(prompt)
+            return proposal(prompt)
+        resumed=resume_from_report(self.data,self.root/"resumed",recording_model,model_id="mocked",
                                    previous_report_path=initial["report_path"])
         newer=json.loads(Path(resumed["report_path"]).read_text(encoding="utf-8"))
         self.assertTrue(newer["model_feedback_used"])
+        self.assertIn("\nReturn a JSON array",prompts[0])
         self.assertIsNotNone(newer["parent_report_sha256"])
         self.assertFalse(resumed["live_trading_authorized"])
 
