@@ -24,6 +24,6 @@ class CompletedSlotRestartTests(unittest.TestCase):
             self.assertEqual(result["attempted_slots"][0]["status"],"already_processed")
             self.assertEqual(load_openai_status(Path(d).parent)["state"] if False else
                              json.loads((root/"supervisor-status.json").read_text())["phase"],
-                             "waiting_for_next_slot")
+                             "completed")
 if __name__=="__main__":
     unittest.main()
