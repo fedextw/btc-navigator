@@ -65,7 +65,7 @@ def research_with_feedback(csv_path,output_dir,model_fn,*,model_id,prior,cost=0.
     readiness=check_feedback_readiness(csv_path, prior, cost)
     context=feedback_context(prior)
     def propose(prompt):
-        raw = model_fn(json.dumps(context,sort_keys=True,ensure_ascii=False)+"\\n"+prompt)
+        raw = model_fn(json.dumps(context,sort_keys=True,ensure_ascii=False)+"\n"+prompt)
         # The next generation must include a previously untested specification.
         # This compares strategy identities, not rationale text.
         if isinstance(raw,str) and len(raw.encode("utf-8")) <= 16384:
