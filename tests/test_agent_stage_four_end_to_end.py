@@ -35,7 +35,7 @@ class IntegrationTests(unittest.TestCase):
         self.calls.append(symbol)
         self.parents.setdefault(symbol,[]).append(prior)
         data={"schema":"agent-orchestrator-v1","paper_only":True,
-              "live_trading_authorized":False,"candidate_count":1,
+              "live_trading_authorized":False,"dataset_latest_utc":"2020-01-01T00:00:00+00:00","candidate_count":1,
               "candidates":[{"status":"rejected"}],"selected":None}
         blob=json.dumps(data,sort_keys=True).encode()
         output=Path(out)/"reports"
