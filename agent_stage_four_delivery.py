@@ -54,7 +54,7 @@ def main():
     with out.open("x",encoding="utf-8") as handle:
         json.dump(result,handle,ensure_ascii=False,sort_keys=True,
                   indent=2,allow_nan=False)
-        handle.write("\\n")
+        handle.write("\n")
     print(json.dumps({"summary_path":str(out),"result":result},
                      ensure_ascii=False,indent=2))
 if __name__=="__main__":
