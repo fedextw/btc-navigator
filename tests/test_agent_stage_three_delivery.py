@@ -29,7 +29,21 @@ class StageThreeDeliveryTests(unittest.TestCase):
         self.assertFalse(result["profitability_proven"])
         self.assertFalse(result["live_trading_authorized"])
         self.assertFalse(result["engineering_accepted"])
+        self.assertFalse(result["comparison_provider_verified"])
         self.assertTrue((self.root/"delivery"/"delivery_summary.json").exists())
+    def test_delivery_requires_comparison_provider_provenance(self):
+        trial={"market":{"csv":"frozen.csv","dataset_sha256":"a"*64},
+               "research":{"completed_generations":2},
+               "provider_verified_by_live_calls":True,
+               "acceptance":{"accepted":True}}
+        comparison={"dataset_sha256":"a"*64,"models":[{"model":"one"},{"model":"two"}],
+                    "real_provider_calls_verified":False}
+        with patch("agent_stage_three_delivery.run_stage_three_trial",return_value=trial),patch(
+            "agent_stage_three_delivery.compare_models",return_value=comparison):
+            report=run_delivery(self.root/"missing_model_proof")
+        self.assertFalse(report["engineering_accepted"])
+        self.assertFalse(report["comparison_provider_verified"])
+
     def test_mismatched_market_rejected(self):
         trial={"market":{"csv":"ignored","dataset_sha256":"a"*64},
                "research":{"completed_generations":2},
