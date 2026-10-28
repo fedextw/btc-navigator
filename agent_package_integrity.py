@@ -19,6 +19,8 @@ def verify_package(root):
                 if p.is_file() and p!=manifest and
                 "__pycache__" not in p.relative_to(root).parts and
                 ".agent-test-state" not in p.relative_to(root).parts and
+                ".local-state" not in p.relative_to(root).parts and
+                "stage4-openai" not in p.relative_to(root).parts and
                 ".launcher-venv" not in p.relative_to(root).parts and
                 p.name not in ("startup.log","scanner.log","agent-research.log")}
         if set(files)!=actual:
