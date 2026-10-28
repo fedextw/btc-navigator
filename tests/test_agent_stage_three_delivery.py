@@ -14,12 +14,13 @@ class StageThreeDeliveryTests(unittest.TestCase):
         market=self.root/"market.csv"
         market.write_text("frozen",encoding="utf-8")
         trial={"market":{"csv":str(market),"dataset_sha256":"a"*64},
-               "research":{"completed_generations":2},
+               "research":{"completed_generations":2,"reports":["prior-evidence.json"]},
                "provider_verified_by_live_calls":False,
                "acceptance":{"accepted":False}}
         comparison={"dataset_sha256":"a"*64,"models":[{"model":"baseline"},{"model":"challenger"}]}
         with patch("agent_stage_three_delivery.run_stage_three_trial",return_value=trial) as runner,patch(
-            "agent_stage_three_delivery.compare_models",return_value=comparison) as matcher:
+            "agent_stage_three_delivery.compare_models",return_value=comparison) as matcher,patch(
+            "agent_stage_three_delivery.resume_from_report",return_value={"report_path":"recovered.json"}):
             result=run_delivery(self.root/"delivery",comparison_models=("baseline","challenger"),
                                 propose=lambda p:"[]",comparison_provider=lambda m,p:"[]")
         self.assertEqual(runner.call_count,1)
@@ -39,7 +40,8 @@ class StageThreeDeliveryTests(unittest.TestCase):
         comparison={"dataset_sha256":"a"*64,"models":[{"model":"one"},{"model":"two"}],
                     "real_provider_calls_verified":False}
         with patch("agent_stage_three_delivery.run_stage_three_trial",return_value=trial),patch(
-            "agent_stage_three_delivery.compare_models",return_value=comparison):
+            "agent_stage_three_delivery.compare_models",return_value=comparison),patch(
+            "agent_stage_three_delivery.resume_from_report",return_value={"report_path":"recovered.json"}):
             report=run_delivery(self.root/"missing_model_proof")
         self.assertFalse(report["engineering_accepted"])
         self.assertFalse(report["comparison_provider_verified"])
