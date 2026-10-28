@@ -87,6 +87,26 @@ def supervise(state_dir, *, max_batches, hours=6, interval="1h",
                     completed_batches=sum(x["status"]=="completed" for x in outcomes),
                     max_calls=max_calls)
             raise ValueError("UTC slot repeated; refusing duplicate billing")
+        # If another run already persisted this slot, never repeat a paid call.
+        if ledger.is_file():
+            snapshot=json.loads(ledger.read_text(encoding="utf-8"))
+            if (snapshot.get("schema")!="agent-stage4-universe-cursor-v1" or
+                    snapshot.get("live_trading_authorized") is not False or
+                    snapshot.get("status") not in ("reserved","completed")):
+                _status(state_dir,phase="requires_manual_review",slot=slot,max_calls=max_calls)
+                raise ValueError("Invalid research cursor during scheduled rotation")
+            if snapshot.get("status")=="reserved":
+                _status(state_dir,phase="requires_manual_review",slot=slot,max_calls=max_calls)
+                raise ValueError("Reserved research cursor requires review")
+            if snapshot.get("slot")==slot:
+                attempted.add(slot)
+                outcomes.append({"slot":slot,"status":"already_processed"})
+                if index+1<max_batches:
+                    current=clock()
+                    elapsed=(current.hour % hours)*3600+current.minute*60+current.second
+                    sleep(max(1,hours*3600-elapsed))
+                    continue
+                break
         attempted.add(slot)
         try:
             result = runner(state_dir, slot=slot, interval=interval, model=model, count=count)
