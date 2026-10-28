@@ -54,6 +54,8 @@ def supervise(state_dir, *, max_batches, hours=6, interval="1h",
         if previous.get("schema")!="agent-stage4-universe-cursor-v1" or previous.get("live_trading_authorized") is not False:
             raise ValueError("Invalid persisted research cursor")
         if previous.get("status")=="reserved":
+            _status(state_dir,phase="requires_manual_review",
+                    slot=str(previous.get("slot",""))[:48],max_calls=10*max_batches)
             raise ValueError("Interrupted research slot requires manual review before paid work")
     attempted = set()
     outcomes = []
