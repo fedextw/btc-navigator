@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 from agent_stage_four_checkpoint import run_checkpointed
 from agent_symbol_validation import valid_symbol
+from agent_stage_four_universe import discover
 
 def run_batch(state_dir, *, symbols, seed_reports, slot, interval="1h",
               model="gpt-4.1-mini", count=1600, runner=run_checkpointed):
@@ -40,19 +41,41 @@ def run_batch(state_dir, *, symbols, seed_reports, slot, interval="1h",
     return {"schema":"agent-stage4-batch-v1","slot":slot,"items":items,
             "paper_only":True,"live_trading_authorized":False}
 
+def run_discovered_batch(state_dir, *, seed_reports, slot, offset=0, fetch=None,
+                         interval="1h", model="gpt-4.1-mini", count=1600,
+                         runner=run_checkpointed):
+    """Explore active Binance contracts, without borrowing another symbol's seed."""
+    universe=discover(fetch=fetch,limit=10,offset=offset)
+    eligible=[s for s in universe["symbols"] if isinstance(seed_reports,dict)
+              and isinstance(seed_reports.get(s),str) and seed_reports[s]]
+    if not eligible:
+        return {"schema":"agent-stage4-discovered-batch-v1","universe":universe,
+                "items":[],"status":"no_seeded_active_contracts",
+                "paper_only":True,"live_trading_authorized":False}
+    batch=run_batch(state_dir,symbols=eligible,seed_reports=seed_reports,slot=slot,
+                    interval=interval,model=model,count=count,runner=runner)
+    return {"schema":"agent-stage4-discovered-batch-v1","universe":universe,
+            "items":batch["items"],"status":"completed",
+            "paper_only":True,"live_trading_authorized":False}
+
 def main():
     p=argparse.ArgumentParser(description="Bounded per-market paper research batch")
     p.add_argument("--state-dir",required=True)
     p.add_argument("--slot",required=True)
     p.add_argument("--seeds",required=True,help="JSON symbol-to-immutable-report mapping")
-    p.add_argument("--symbols",nargs="+",required=True)
+    p.add_argument("--symbols",nargs="+")
+    p.add_argument("--discover",action="store_true",help="Only active public Binance USD-M markets with existing seeds")
+    p.add_argument("--offset",type=int,default=0)
     p.add_argument("--interval",default="1h")
     p.add_argument("--model",default="gpt-4.1-mini")
     p.add_argument("--count",type=int,default=1600)
     a=p.parse_args()
     mapping=json.loads(Path(a.seeds).read_text(encoding="utf-8"))
-    print(json.dumps(run_batch(a.state_dir,symbols=a.symbols,seed_reports=mapping,
-       slot=a.slot,interval=a.interval,model=a.model,count=a.count),
-       ensure_ascii=False,indent=2))
+    result=(run_discovered_batch(a.state_dir,seed_reports=mapping,slot=a.slot,
+              offset=a.offset,interval=a.interval,model=a.model,count=a.count)
+            if a.discover else run_batch(a.state_dir,symbols=a.symbols,
+              seed_reports=mapping,slot=a.slot,interval=a.interval,
+              model=a.model,count=a.count))
+    print(json.dumps(result,ensure_ascii=False,indent=2))
 if __name__=="__main__":
     main()
