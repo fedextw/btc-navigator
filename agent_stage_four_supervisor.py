@@ -93,8 +93,12 @@ def supervise(state_dir, *, max_batches, hours=6, interval="1h",
             status = result["status"]
             permitted = {"completed", "already_processed", "waiting_for_fresh_data",
                          "requires_manual_review", "empty_universe"}
-            if (status not in permitted or result.get("live_trading_authorized",False) is not False
-                    or result.get("paper_only",True) is not True):
+            # Production exchange/provider output must explicitly attest its
+            # safety boundary. Lightweight injected CI runners remain compatible.
+            strict_provenance = runner is run_rotation
+            if (status not in permitted or
+                    result.get("live_trading_authorized", None if strict_provenance else False) is not False or
+                    result.get("paper_only", None if strict_provenance else True) is not True):
                 raise ValueError("Unsafe or unknown OpenAI research result; halting")
         except (KeyboardInterrupt, SystemExit):
             # An interrupted request may already have been billed.
