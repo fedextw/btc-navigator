@@ -65,6 +65,9 @@ def supervise(state_dir, *, max_batches, hours=6, interval="1h",
         if prior.get("slot")==current_slot and prior.get("status")=="completed":
             _status(state_dir,phase="waiting_for_next_slot",slot=current_slot,
                     max_calls=max_calls)
+            # A restart cannot replay work already billed during this slot.
+            # Stop this invocation: a new explicit session is required to
+            # authorize additional future work.
             return {"schema":"agent-stage4-bounded-supervisor-v1",
                     "max_model_calls_authorized":max_calls,
                     "attempted_slots":[{"slot":current_slot,"status":"already_processed"}],
