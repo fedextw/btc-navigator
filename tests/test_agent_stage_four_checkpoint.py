@@ -42,6 +42,29 @@ class Stage4CheckpointTests(unittest.TestCase):
             run_checkpointed(self.root,"prior.json",slot="hour-004",runner=runner)
         state=json.loads((self.root/"stage4-checkpoint.json").read_text(encoding="utf-8"))
         self.assertEqual(state["status"],"reserved")
+    def test_next_slot_uses_completed_report_not_original_seed(self):
+        one=self.root/"first.json"
+        two=self.root/"second.json"
+        one.write_text("first report",encoding="utf-8")
+        two.write_text("second report",encoding="utf-8")
+        parents=[]
+        def runner(out,parent,**kwargs):
+            parents.append(str(parent))
+            return {"report_path":str(one if len(parents)==1 else two),
+                    "paper_only":True,"live_trading_authorized":False}
+        run_checkpointed(self.root,"initial.json",slot="hour-001",runner=runner)
+        run_checkpointed(self.root,"initial.json",slot="hour-002",runner=runner)
+        self.assertEqual(parents,["initial.json",str(one)])
+    def test_next_slot_refuses_missing_prior_evidence(self):
+        prior=self.root/"vanished.json"
+        prior.write_text("evidence",encoding="utf-8")
+        def runner(*args,**kw):
+            return {"report_path":str(prior),"paper_only":True,
+                    "live_trading_authorized":False}
+        run_checkpointed(self.root,"initial.json",slot="hour-001",runner=runner)
+        prior.unlink()
+        with self.assertRaisesRegex(ValueError,"report missing"):
+            run_checkpointed(self.root,"initial.json",slot="hour-002",runner=runner)
     def test_invalid_slot_rejected_without_state(self):
         with self.assertRaises(ValueError):
             run_checkpointed(self.root,"prior.json",slot="../escape")
