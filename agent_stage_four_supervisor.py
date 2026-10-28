@@ -7,6 +7,7 @@ fresh data is a normal wait, while ambiguous work halts for manual review.
 import argparse
 import json
 import os
+import tempfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -14,7 +15,23 @@ from agent_stage_four_periodic import utc_slot
 from agent_stage_four_rotation import run_rotation
 
 
-def supervise(state_dir, *, max_batches, hours=6, interval="1h",
+def _status(state_dir, *, phase, slot="", completed_batches=0, max_calls=0):
+    root=Path(state_dir)
+    root.mkdir(parents=True,exist_ok=True)
+    target=root/"supervisor-status.json"
+    data={"schema":"agent-stage4-supervisor-status-v1","phase":phase,
+          "slot":slot,"completed_batches":completed_batches,
+          "max_model_calls_authorized":max_calls,
+          "updated_at_utc":datetime.now(timezone.utc).isoformat(),
+          "paper_only":True,"live_trading_authorized":False}
+    with tempfile.NamedTemporaryFile("w",encoding="utf-8",dir=root,
+                                     delete=False,suffix=".tmp") as stream:
+        json.dump(data,stream,sort_keys=True,ensure_ascii=False,allow_nan=False)
+        temporary=stream.name
+    os.replace(temporary,target)
+
+
+def supervise(state_dir, * max_batches, hours=6, interval="1h",
               model="gpt-4.1-mini", count=1600, runner=run_rotation,
               clock=None, sleep=None):
     if type(max_batches) is not int or not 1 <= max_batches <= 24:
@@ -27,14 +44,25 @@ def supervise(state_dir, *, max_batches, hours=6, interval="1h",
     sleep = sleep or time.sleep
     attempted = set()
     outcomes = []
+    max_calls=10*max_batches
+    _status(state_dir,phase='running',max_calls=max_calls)
     for index in range(max_batches):
         now = clock()
         slot = utc_slot(now, hours)
         if slot in attempted:
             raise ValueError("UTC slot repeated; refusing duplicate billing")
         attempted.add(slot)
-        result = runner(state_dir, slot=slot, interval=interval, model=model, count=count)
-        status = result["status"]
+        try:
+            result = runner(state_dir, slot=slot, interval=interval, model=model, count=count)
+            status = result["status"]
+        except Exception:
+            _status(state_dir,phase="error",slot=slot,
+                    completed_batches=len(outcomes),max_calls=max_calls)
+            raise
+        _status(state_dir,phase=status if status in
+                ("waiting_for_fresh_data","requires_manual_review") else "running",
+                slot=slot,completed_batches=len(outcomes)+(status=="completed"),
+                max_calls=max_calls)
         outcomes.append({"slot": slot, "status": status})
         if status in ("requires_manual_review", "empty_universe"):
             break
@@ -45,6 +73,8 @@ def supervise(state_dir, *, max_batches, hours=6, interval="1h",
             elapsed = ((current.hour % hours) * 3600 +
                        current.minute * 60 + current.second)
             sleep(max(1, hours * 3600 - elapsed))
+    if outcomes and outcomes[-1]["status"] not in ("requires_manual_review","empty_universe"):
+        _status(state_dir,phase="completed",slot=outcomes[-1]["slot"],completed_batches=sum(x["status"]=="completed" for x in outcomes),max_calls=max_calls)
     return {"schema": "agent-stage4-bounded-supervisor-v1",
             "max_model_calls_authorized": 10 * max_batches,
             "attempted_slots": outcomes, "paper_only": True,
