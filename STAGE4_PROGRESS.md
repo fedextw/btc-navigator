@@ -24,3 +24,6 @@ If not enough NEW candles have elapsed to make the new validation segment start 
 4. Real paper-forward evidence, performance after costs and slippage, and operational audit
 
 No merge to production. No live orders. No guaranteed positive expectancy.
+
+## Checkpointed explicit worker (new)
+`agent_stage_four_checkpoint.py` accepts a unique `--slot` per research attempt, applies an OS process lock and reserves the slot before external I/O. The same slot is never rerun. If a run fails midway, a subsequent invocation returns `requires_manual_review` instead of replaying a potentially billed model request. This is deliberate fail-closed behavior, not automatic recovery. No unattended scheduling has been enabled yet.
