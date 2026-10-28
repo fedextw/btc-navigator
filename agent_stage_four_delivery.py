@@ -35,7 +35,11 @@ def delivery(state_dir, *, slot, execute=False, allow_model_calls=0,
     audit=audit_delivery(state_dir,interval=interval)
     # An earlier verified checkpoint must not certify a new batch that was
     # skipped, waiting for data, or stopped for manual review.
-    current_batch_valid = (not execute or rotation["status"]=="completed")
+    # The audit must refer to this exact requested slot; a different
+    # completed batch must never certify paid research for another slot.
+    current_batch_valid = (not execute or (
+        rotation["status"] == "completed" and
+        audit.get("rotation_slot") == slot))
     return {"schema":"agent-stage4-local-acceptance-v1",
             "mode":"live_public_data_and_model" if execute else "offline_preflight",
             "rotation_status":rotation["status"],"rotation":rotation,
