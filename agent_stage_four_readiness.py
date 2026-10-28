@@ -31,7 +31,8 @@ def check_batch_readiness(state_dir, symbols, *, interval="1h", count=1600, now=
             raise ValueError("Invalid per-market checkpoint")
         if checkpoint.get("status") != "completed":
             # This is NOT a normal wait: an interrupted model call needs review.
-            return {"status": "requires_manual_review", "symbol": symbol}
+            return {"status": "requires_manual_review", "symbol": symbol,
+                    "paper_only": True, "live_trading_authorized": False}
         report_path = checkpoint.get("report_path")
         if not isinstance(report_path, str) or not Path(report_path).is_file():
             raise ValueError("Missing completed research report")
