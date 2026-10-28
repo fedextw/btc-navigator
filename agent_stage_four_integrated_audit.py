@@ -26,6 +26,20 @@ def audit_delivery(state_dir, *, papers=None, interval="1h"):
                 or cursor.get("status")!="completed"):
             issues.append("rotation_not_completed")
     evidence=review(state,paper_summaries=papers,interval=interval)
+    # Bind audit to the actual market selection for THIS rotation slot.
+    if cursor is not None and cursor.get("status")=="completed":
+        expected=cursor.get("symbols")
+        if (not isinstance(expected,list) or not expected
+                or len(expected)>10 or len(expected)!=len(set(expected))
+                or any(not isinstance(x,str) for x in expected)):
+            issues.append("rotation_market_selection_missing")
+        else:
+            by_symbol={x["symbol"]:x for x in evidence["markets"]}
+            if any(symbol not in by_symbol or
+                   by_symbol[symbol]["slot"]!=cursor["slot"] or
+                   not by_symbol[symbol]["report_verified"]
+                   for symbol in expected):
+                issues.append("rotation_market_evidence_mismatch")
     if evidence["research_reports_verified"]==0:
         issues.append("no_verified_research_reports")
     if any(x["checkpoint_status"]!="completed" or not x["report_verified"]
