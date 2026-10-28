@@ -49,8 +49,8 @@ def run_checkpointed(state_dir, prior_report, *, slot, runner=run_step,
             selected_parent=previous.get("report_path")
             if not isinstance(selected_parent,str) or not Path(selected_parent).is_file():
                 raise ValueError("Previous completed report missing")
-        elif not isinstance(prior_report,(str,Path)):
-            raise ValueError("Initial immutable report required")
+        elif prior_report is not None and not isinstance(prior_report,(str,Path)):
+            raise ValueError("Invalid initial report")
         # Slot reservation happens before external I/O or any billable model call.
         now=datetime.now(timezone.utc).isoformat()
         base={"schema":"agent-stage4-checkpoint-v1","slot":slot,"status":"reserved",
