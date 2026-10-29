@@ -20,7 +20,8 @@ class UTCBoundaryRaceRegressionTests(unittest.TestCase):
                     now[0]=datetime(2026,10,29,5,59,59,tzinfo=timezone.utc)
                 else:
                     now[0]=datetime(2026,10,29,6,0,0,tzinfo=timezone.utc)
-            with patch("agent_stage_four_supervisor.time.sleep",side_effect=sleep),\
+            with patch.dict("os.environ",{"CI":""}),\
+                 patch("agent_stage_four_supervisor.time.sleep",side_effect=sleep),\
                  patch("agent_stage_four_supervisor.time.monotonic",side_effect=[0,21601]):
                 result=supervise(root,max_batches=2,runner=fake_runner,clock=clock)
             self.assertEqual(calls,["20261029T00Z","20261029T06Z"])
