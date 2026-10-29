@@ -63,7 +63,16 @@ def run_rotation(state_dir, *, slot, seeds=None, fetch=None, runner=None,
                 s,interval=interval,count=count,verify_full_window=True)]
             universe=dict(universe,symbols=verified)
             if not verified:
+                # Move to the next discovery page at the NEXT UTC slot rather
+                # than retrying this same ineligible page indefinitely.
+                # No OpenAI reservation or paid model call is performed.
+                next_offset=offset+page_size if universe["has_more"] else 0
+                _save(cursor,{"schema":"agent-stage4-universe-cursor-v1",
+                    "slot":slot,"offset":offset,"next_offset":next_offset,
+                    "status":"completed","symbols":[],"paper_only":True,
+                    "live_trading_authorized":False})
                 return {"status":"waiting_for_fresh_data","slot":slot,
+                        "offset":offset,"next_offset":next_offset,
                         "waiting":[{"reason":"no_selected_market_has_sufficient_history"}],
                         "paper_only":True,"live_trading_authorized":False}
         readiness=check_batch_readiness(root,universe["symbols"],interval=interval,count=count)
