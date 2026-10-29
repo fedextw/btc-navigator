@@ -1,5 +1,6 @@
 """Public-data-only candle history eligibility before model-call reservation."""
 import json
+import argparse
 import urllib.parse
 import urllib.request
 import tempfile
@@ -45,3 +46,24 @@ def enough_closed_history(symbol, *, interval="1h", count=1600, fetch=None, now_
                 return False
             raise
     return True
+
+def main():
+    parser=argparse.ArgumentParser(description="Public Binance history preflight only; zero OpenAI calls")
+    parser.add_argument("--symbol",default="4USDT")
+    parser.add_argument("--interval",choices=tuple(INTERVAL_MS),default="1h")
+    parser.add_argument("--count",type=int,default=1600)
+    args=parser.parse_args()
+    try:
+        sufficient=enough_closed_history(args.symbol,interval=args.interval,
+                                          count=args.count,verify_full_window=True)
+        result={"symbol":args.symbol,"status":"ready" if sufficient else "insufficient_history",
+                "openai_calls":0,"paper_only":True}
+    except Exception as exc:
+        result={"symbol":args.symbol,"status":"public_data_error",
+                "error_type":type(exc).__name__,
+                "openai_calls":0,"paper_only":True}
+    print(json.dumps(result,ensure_ascii=False))
+    return 0 if result["status"]=="ready" else 1
+
+if __name__=="__main__":
+    raise SystemExit(main())
