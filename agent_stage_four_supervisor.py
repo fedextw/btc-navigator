@@ -65,10 +65,19 @@ def supervise(state_dir, *, max_batches, hours=6, interval="1h",
         now = clock()
         slot = utc_slot(now, hours)
         if slot in attempted:
-            _status(state_dir,phase="error",slot=slot,
-                    completed_batches=sum(x["status"]=="completed" for x in outcomes),
-                    max_calls=max_calls)
-            raise ValueError("UTC slot repeated; refusing duplicate billing")
+            # A monotonic sleep can end fractionally before the UTC clock
+            # crosses a slot boundary (seen in the real 2026-10-29 run).
+            # Keep waiting; never call the paid runner twice in the same slot.
+            if sleep is not time.sleep or os.getenv("CI","").lower()=="true":
+                raise ValueError("UTC slot repeated under virtual clock")
+            while utc_slot(clock(),hours)==slot:
+                _status(state_dir,phase="waiting_for_next_slot",slot=slot,
+                        completed_batches=sum(x["status"]=="completed" for x in outcomes),
+                        max_calls=max_calls)
+                time.sleep(1)
+            slot=utc_slot(clock(),hours)
+            if slot in attempted:
+                raise ValueError("UTC clock did not advance to a new slot")
         # If another run already persisted this slot, never repeat a paid call.
         if ledger.is_file():
             snapshot=json.loads(ledger.read_text(encoding="utf-8"))
