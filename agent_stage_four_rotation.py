@@ -12,6 +12,7 @@ from agent_single_instance import research_lock
 from agent_stage_four_multimarket import run_discovered_batch
 from agent_stage_four_universe import discover
 from agent_stage_four_readiness import check_batch_readiness
+from agent_stage_four_candle_preflight import enough_closed_history
 
 def _save(path, data):
     path.parent.mkdir(parents=True,exist_ok=True)
@@ -53,6 +54,18 @@ def run_rotation(state_dir, *, slot, seeds=None, fetch=None, runner=None,
                               minimum_history_ms=minimum_history_ms)
         if not universe["symbols"]:
             return {"status":"empty_universe","paper_only":True,"live_trading_authorized":False}
+        page_size=len(universe["symbols"])
+        # Real runs must verify the oldest available PUBLIC candle; exchange
+        # listing dates alone did not exclude 4USDT in the user's second slot.
+        # Fail closed on network errors, before making any model calls.
+        if fetch is None:
+            verified=[s for s in universe["symbols"] if enough_closed_history(
+                s,interval=interval,count=count)]
+            universe=dict(universe,symbols=verified)
+            if not verified:
+                return {"status":"waiting_for_fresh_data","slot":slot,
+                        "waiting":[{"reason":"no_selected_market_has_sufficient_history"}],
+                        "paper_only":True,"live_trading_authorized":False}
         readiness=check_batch_readiness(root,universe["symbols"],interval=interval,count=count)
         if readiness["status"]!="ready":
             return dict(readiness,offset=offset,slot=slot)
@@ -72,7 +85,7 @@ def run_rotation(state_dir, *, slot, seeds=None, fetch=None, runner=None,
         if not statuses or any(s not in permitted for s in statuses):
             return {"status":"requires_manual_review","offset":offset,"items":result["items"],
                     "paper_only":True,"live_trading_authorized":False}
-        next_offset=0 if not universe["has_more"] else offset+len(universe["symbols"])
+        next_offset=0 if not universe["has_more"] else offset+page_size
         _save(cursor,dict(base,status="completed",next_offset=next_offset))
         return {"status":"completed","offset":offset,"next_offset":next_offset,
                 "items":result["items"],"paper_only":True,"live_trading_authorized":False}
