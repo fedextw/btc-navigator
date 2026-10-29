@@ -17,6 +17,20 @@ class CandlePreflightTests(unittest.TestCase):
             count=1600,fetch=mock(latest_start-100*hour)))
         self.assertTrue(enough_closed_history("BTCUSDT",now_ms=now,
             count=1600,fetch=mock(latest_start-2000*hour)))
+    def test_listing_age_alone_does_not_pass_full_window(self):
+        from unittest.mock import patch
+        with patch("agent_stage_four_candle_preflight.download_public_candles",
+                   side_effect=ValueError("Incomplete Binance candle response")) as download:
+            class Resp:
+                def __enter__(self):return self
+                def __exit__(self,*args):return False
+                def read(self,*args):return json.dumps([[1000, "1", "1", "1", "1", "1", 2000]]).encode()
+            result=enough_closed_history("4USDT",count=1600,
+                 now_ms=2000000000000,fetch=lambda *a,**kw:Resp(),
+                 verify_full_window=True)
+            self.assertFalse(result)
+            download.assert_called_once()
+
     def test_public_history_errors_fail_closed(self):
         class Resp:
             def __enter__(self):return self
