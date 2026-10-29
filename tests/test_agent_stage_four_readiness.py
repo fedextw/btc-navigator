@@ -52,6 +52,7 @@ class FreshnessGateTests(unittest.TestCase):
         self.make_checkpoint(latest=datetime.now(timezone.utc).isoformat())
         discovery = {"symbols": [self.symbol], "has_more": False}
         with patch("agent_stage_four_rotation.discover", return_value=discovery), patch(
+            "agent_stage_four_rotation.enough_closed_history", return_value=True), patch(
             "agent_stage_four_rotation.run_discovered_batch") as research:
             result = run_rotation(self.root, slot="NEW")
         self.assertEqual(result["status"], "waiting_for_fresh_data")
