@@ -4,7 +4,8 @@ import json
 from pathlib import Path
 import sys
 
-ESSENTIAL = ("START.bat", "START_BC_RESEARCH_TEST.bat", "bootstrap.py",
+ESSENTIAL = ("START.bat", "START_BC_RESEARCH_TEST.bat",
+             "CHECK_BC_PUBLIC_CANDLES.bat", "bootstrap.py",
              "launch.py", "btc_app.py", "dashboard.py", "scanner.py",
              "agent_research_scheduler.py", "agent_single_instance.py",
              "agent_backup.py", "agent_restore.py", "requirements.txt",
