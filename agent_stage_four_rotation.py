@@ -60,7 +60,7 @@ def run_rotation(state_dir, *, slot, seeds=None, fetch=None, runner=None,
         # Fail closed on network errors, before making any model calls.
         if fetch is None:
             verified=[s for s in universe["symbols"] if enough_closed_history(
-                s,interval=interval,count=count)]
+                s,interval=interval,count=count,verify_full_window=True)]
             universe=dict(universe,symbols=verified)
             if not verified:
                 return {"status":"waiting_for_fresh_data","slot":slot,
