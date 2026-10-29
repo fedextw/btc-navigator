@@ -1,0 +1,49 @@
+name: Agent research regression tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - agent/bc-research-sandbox-20261025
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  agent-tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ['3.13']
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install website smoke dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Run offline agent regression tests
+        run: python -m unittest discover -s tests -p "test_agent_*.py" -v
+      - name: Launch demo Streamlit website smoke test
+        run: python -m unittest discover -s tests -p "test_website_smoke.py" -v
+      - name: Full demo launcher smoke test (web, scanner, Agent)
+        run: python -m unittest discover -s tests -p "test_full_stack_demo_smoke.py" -v
+      - name: Test extracted release ZIP and offline launcher
+        run: python -m unittest discover -s tests -p "test_agent_extracted_release.py" -v
+      - name: Run B+C release preflight
+        run: python agent_release_preflight.py
+      - name: Build isolated B+C Windows ZIP
+        if: runner.os == 'Windows'
+        run: python agent_build_release.py
+      - name: Upload tested B+C Windows research ZIP
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: BTC_NAVIGATOR_BC_RESEARCH_TEST
+          path: dist/BTC_NAVIGATOR_BC_RESEARCH_TEST.zip
+          if-no-files-found: error
+          retention-days: 14

@@ -429,7 +429,7 @@ def main():
     with st.sidebar:
         st.markdown('<div class="brand-sub">RESEARCH / CONTROL ROOM</div>', unsafe_allow_html=True)
         st.caption("工作區 / MARKET WORKSPACE")
-        workspace = st.radio("功能", ["策略訊號台", "全市場訊號", "互動決策台", "單幣研究", "學習與績效", "系統健康", "設定中心"], key="workspace", index=None)
+        workspace = st.radio("功能", ["策略訊號台", "全市場訊號", "互動決策台", "單幣研究", "學習與績效", "AI Agent 研究中心", "系統健康", "設定中心"], key="workspace", index=None)
         symbol = st.session_state.get("selected_symbol", os.environ.get("BTC_DEFAULT_SYMBOL", "BTCUSDT"))
         interval = os.environ.get("BTC_DEFAULT_INTERVAL", "1h")
         mode = "demo" if os.environ.get("BTC_NAVIGATOR_DEMO") == "1" else "auto"
@@ -474,6 +474,9 @@ def main():
         decision_desk(sorted(set(SYMBOLS) | set(discovered_symbols())))
     elif workspace == "學習與績效":
         learning_page()
+    elif workspace == "AI Agent 研究中心":
+        from agent_research_panel import render as render_agent_research
+        render_agent_research(STATE_ROOT)
     elif workspace == "系統健康":
         health_page()
     elif workspace == "設定中心":

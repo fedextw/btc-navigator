@@ -1,0 +1,65 @@
+# B＋C Stage 4 — Controlled Autonomous Research
+
+Stage 3 engineering acceptance passed locally. This stage extends failed-strategy feedback into repeatable, **explicitly invoked** research steps. It is NOT yet a continuously running unattended agent, and it cannot order or promote live strategies.
+
+## What has been implemented
+- `agent_stage_four_research.py`: one bounded step using a content-addressed prior report, newly retrieved closed Binance USD-M candles, independent-validation checks and one real bounded model proposal.
+- Rejects overwritten workspaces, tampered prior reports, unsafe provenance, unchanged or overlapping market validation; the model is not contacted when temporal evidence is invalid.
+- Saves `step_summary.json`, a new immutable candidate evaluation report, lineage and explicit `no_qualified_candidate` where appropriate; zero live authority.
+- Independent unit tests use mocked provider calls and cannot establish real-provider availability or profitability.
+
+## Running a single step (optional, costs API credits)
+Provide the hashed JSON report path from the final Stage 3 `resume` folder. In the updated B+C checkout:
+
+```powershell
+py -3 agent_stage_four_research.py --prior-report ".local-state\stage3-delivery-final-01\resume\f272b27d23d3b3012482ee7d88c4fd027e0364b35c5bfeeab926d0aa86ee6593.json" --out ".local-state\stage4-step-01" --symbol BTCUSDT --interval 1h --count 1600 --model gpt-4.1-mini
+```
+
+If not enough NEW candles have elapsed to make the new validation segment start after the latest prior dataset cutoff, it deliberately refuses before calling the model. This is correct: do not trick the gate by reusing old candles.
+
+## Stage 4 acceptance remains OPEN
+1. Unattended operator with bounded frequency and replay-safe persistent checkpoint
+2. Scheduling without duplicate evaluation and crash-safe recovery
+3. Rotating Binance USDT-margined futures universe with sound data readiness/freshness rules
+4. Real paper-forward evidence, performance after costs and slippage, and operational audit
+
+No merge to production. No live orders. No guaranteed positive expectancy.
+
+## Checkpointed explicit worker (new)
+`agent_stage_four_checkpoint.py` accepts a unique `--slot` per research attempt, applies an OS process lock and reserves the slot before external I/O. The same slot is never rerun. If a run fails midway, a subsequent invocation returns `requires_manual_review` instead of replaying a potentially billed model request. This is deliberate fail-closed behavior, not automatic recovery. No unattended scheduling has been enabled yet.
+
+## Opt-in bounded UTC scheduler
+`agent_stage_four_periodic.py` reuses the same checkpointed research worker. It rounds timestamps into 1/2/3/4/6/8/12/24h UTC slots, supports `--once` and a bounded `--max-cycles`, and halts when a slot requires manual review. Nothing starts on boot and no third-party schedule is created. Reuse of a completed slot does not repeat model billing. The checkpointed worker now automatically passes the last completed report to the next slot, preserving cross-generation feedback. An incomplete slot or missing completed report halts research rather than reusing the original seed. Dynamic symbol rotation remains outstanding.
+
+## Multi-market isolated batch (new)
+`agent_stage_four_multimarket.py` now executes a bounded, explicitly selected batch of 1–10 USDT contract symbols. Each market/interval has its own state directory, checkpoint, last-generation report and failure status. One contract's failure does not overwrite other markets' lineage. Every contract requires its own valid previously created seed report; BTC research evidence must never serve as ETH evidence. This is a manual bounded market list, **not yet dynamic Binance-wide universe discovery**. No live trading.
+
+## New market independent bootstrap
+When a discovered Binance USD-M perpetual symbol has no previous research record, the isolated checkpoint worker now permits `prior_report=None` and starts its *own* first-generation model research. Each later slot resumes solely from that symbol's last immutable report. `--discover` no longer requires a `--seeds` mapping. This is a bounded page of at most 10 active markets; it does not yet automatically cycle through all pages, guarantee exchange data quality/liquidity, or prove live provider acceptance. Each new market bootstrap can consume one billable model call; manual, opt-in execution only.
+
+## Durable Binance-wide rotation (new)
+`agent_stage_four_rotation.py` rotates an opt-in batch of at most 10 symbols per explicitly named slot using a persisted atomic offset. Each batch uses one frozen discovery response; successful batches advance to the next page and eventually wrap to the beginning. Crashes and any manual-review item hold the global rotation cursor in `reserved` status: no further scheduled batch will silently skip a failed market. Because a slot can incur up to 10 billable model proposals, execution is explicitly opt-in, not enabled by default. This is symbol-discovery rotation, **not** liquidity-weighted selection, completed operational certification or demonstrated profitable learning.
+
+## Forward-paper evidence linkage (new)
+`agent_stage_four_paper_review.py` verifies that an external, independently recorded prospective-paper summary references precisely the immutable SHA-256 of that market's latest report. No paper summary means no forward-trade credit; mismatched symbols/report IDs and implied actual fills are refused. Paper observation counts are reported separately from strategy research validation and never by themselves prove profitability. This module does not fabricate new forward observations: real time-series forward evidence still needs to be accumulated and operationally audited.
+
+## Integrated stage-four evidence gate (new)
+`agent_stage_four_integrated_audit.py` reads the persisted rotation checkpoint, per-symbol immutable research reports, and optionally supplied prospective paper summaries. It refuses engineering acceptance when rotation has not completed, no reports exist or a symbol's research is incomplete/corrupted. A positive engineering audit is **not** forward validation: `forward_performance_validated=false`, `profitability_proven=false`, and `live_trading_authorized=false`. Unit integration tests use mocked evidence; actual independent real-time data collection and long-running operator acceptance remain outstanding.
+
+## Final local acceptance entry (new)
+`agent_stage_four_delivery.py` runs a no-billing read-only preflight by default. When a user explicitly provides `--execute --allow-model-calls 10`, it attempts at most one bounded active-contract rotation batch, including public Binance data requests and potentially **10 billable OpenAI model calls**. A valid local `OPENAI_API_KEY` is required. It reports saved evidence and does not imply independent forward-test success. This step is not run by CI.
+
+Safe preflight:
+```powershell
+py -3 agent_stage_four_delivery.py --state-dir ".local-state\\stage4-local" --slot S4-001
+```
+
+Explicitly billed full research batch (only with user approval, 10 model requests possible):
+```powershell
+py -3 agent_stage_four_delivery.py --state-dir ".local-state\\stage4-local" --slot S4-001 --execute --allow-model-calls 10
+```
+
+A successful CI run verifies mocked orchestration only. Actual multi-market API behavior, cost and stable prospective performance still require evidence from the user's machine. Never upload API keys.
+
+## Local audit files
+The acceptance CLI now saves a structured local report named `stage4-preflight.json` or `stage4-live-acceptance.json` inside the supplied state directory, which can be uploaded without API credentials. Keep the entire `markets` subfolder intact for independent report verification. No live API calls are run automatically.

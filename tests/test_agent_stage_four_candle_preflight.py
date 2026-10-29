@@ -1,0 +1,68 @@
+import json
+import unittest
+from agent_stage_four_candle_preflight import enough_closed_history
+
+class CandlePreflightTests(unittest.TestCase):
+    def test_insufficient_contract_history_is_excluded_before_model_call(self):
+        now=2000000000000
+        hour=3600000
+        latest_start=(now//hour-1)*hour
+        def mock(earliest):
+            class Resp:
+                def __enter__(self):return self
+                def __exit__(self,*args):return False
+                def read(self,*args):return json.dumps([[earliest, "1", "1", "1", "1", "1", earliest+hour-1]]).encode()
+            return lambda *args,**kwargs:Resp()
+        self.assertFalse(enough_closed_history("4USDT",now_ms=now,
+            count=1600,fetch=mock(latest_start-100*hour)))
+        self.assertTrue(enough_closed_history("BTCUSDT",now_ms=now,
+            count=1600,fetch=mock(latest_start-2000*hour)))
+    def test_listing_age_alone_does_not_pass_full_window(self):
+        from unittest.mock import patch
+        with patch("agent_stage_four_candle_preflight.download_public_candles",
+                   side_effect=ValueError("Incomplete Binance candle response")) as download:
+            class Resp:
+                def __enter__(self):return self
+                def __exit__(self,*args):return False
+                def read(self,*args):return json.dumps([[1000, "1", "1", "1", "1", "1", 2000]]).encode()
+            result=enough_closed_history("4USDT",count=1600,
+                 now_ms=2000000000000,fetch=lambda *a,**kw:Resp(),
+                 verify_full_window=True)
+            self.assertFalse(result)
+            download.assert_called_once()
+
+    def test_malformed_candle_is_excluded_before_paid_research(self):
+        from unittest.mock import patch
+        class Resp:
+            def __enter__(self):return self
+            def __exit__(self,*args):return False
+            def read(self,*args):
+                return json.dumps([[1000,"1","1","1","1","1",2000]]).encode()
+        with patch("agent_stage_four_candle_preflight.download_public_candles",
+                   side_effect=ValueError("K 線 OHLCV 不合法")):
+            self.assertFalse(enough_closed_history("4USDT",count=1600,
+                now_ms=2000000000000,fetch=lambda *a,**kw:Resp(),
+                verify_full_window=True))
+
+    def test_transport_error_still_halts_before_paid_research(self):
+        from unittest.mock import patch
+        class Resp:
+            def __enter__(self):return self
+            def __exit__(self,*args):return False
+            def read(self,*args):
+                return json.dumps([[1000,"1","1","1","1","1",2000]]).encode()
+        with patch("agent_stage_four_candle_preflight.download_public_candles",
+                   side_effect=OSError("network unavailable")):
+            with self.assertRaises(OSError):
+                enough_closed_history("4USDT",count=1600,
+                    now_ms=2000000000000,fetch=lambda *a,**kw:Resp(),
+                    verify_full_window=True)
+
+    def test_public_history_errors_fail_closed(self):
+        class Resp:
+            def __enter__(self):return self
+            def __exit__(self,*args):return False
+            def read(self,*args):return b'{"code":-1121,"msg":"invalid symbol"}'
+        with self.assertRaises(ValueError):
+            enough_closed_history("4USDT",fetch=lambda *args,**kw:Resp())
+if __name__=="__main__":unittest.main()
