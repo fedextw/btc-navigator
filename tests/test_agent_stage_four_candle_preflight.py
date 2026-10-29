@@ -31,6 +31,33 @@ class CandlePreflightTests(unittest.TestCase):
             self.assertFalse(result)
             download.assert_called_once()
 
+    def test_malformed_candle_is_excluded_before_paid_research(self):
+        from unittest.mock import patch
+        class Resp:
+            def __enter__(self):return self
+            def __exit__(self,*args):return False
+            def read(self,*args):
+                return json.dumps([[1000,"1","1","1","1","1",2000]]).encode()
+        with patch("agent_stage_four_candle_preflight.download_public_candles",
+                   side_effect=ValueError("K 線 OHLCV 不合法")):
+            self.assertFalse(enough_closed_history("4USDT",count=1600,
+                now_ms=2000000000000,fetch=lambda *a,**kw:Resp(),
+                verify_full_window=True))
+
+    def test_transport_error_still_halts_before_paid_research(self):
+        from unittest.mock import patch
+        class Resp:
+            def __enter__(self):return self
+            def __exit__(self,*args):return False
+            def read(self,*args):
+                return json.dumps([[1000,"1","1","1","1","1",2000]]).encode()
+        with patch("agent_stage_four_candle_preflight.download_public_candles",
+                   side_effect=OSError("network unavailable")):
+            with self.assertRaises(OSError):
+                enough_closed_history("4USDT",count=1600,
+                    now_ms=2000000000000,fetch=lambda *a,**kw:Resp(),
+                    verify_full_window=True)
+
     def test_public_history_errors_fail_closed(self):
         class Resp:
             def __enter__(self):return self
