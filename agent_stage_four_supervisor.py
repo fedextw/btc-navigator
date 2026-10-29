@@ -69,6 +69,9 @@ def supervise(state_dir, *, max_batches, hours=6, interval="1h",
             # crosses a slot boundary (seen in the real 2026-10-29 run).
             # Keep waiting; never call the paid runner twice in the same slot.
             if sleep is not time.sleep or os.getenv("CI","").lower()=="true":
+                _status(state_dir,phase="error",slot=slot,
+                        completed_batches=sum(x["status"]=="completed" for x in outcomes),
+                        max_calls=max_calls)
                 raise ValueError("UTC slot repeated under virtual clock")
             while utc_slot(clock(),hours)==slot:
                 _status(state_dir,phase="waiting_for_next_slot",slot=slot,
