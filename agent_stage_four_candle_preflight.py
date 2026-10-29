@@ -38,13 +38,11 @@ def enough_closed_history(symbol, *, interval="1h", count=1600, fetch=None, now_
         try:
             download_public_candles(Path(directory)/"market.csv",
                 symbol=symbol, interval=interval, count=count, fetch=fetch)
-        except ValueError as exc:
-            # A short historical window must not reserve a potentially paid
-            # research slot. Unexpected corruption/errors are not suppressed.
-            if str(exc) in ("Incomplete Binance candle response",
-                            "Wrong candle count"):
-                return False
-            raise
+        except ValueError:
+            # Public candle validation failed before any model request.
+            # Exclude only this symbol; never reserve a potentially paid slot.
+            # Network/transport failures still propagate and halt the batch.
+            return False
     return True
 
 def main():
