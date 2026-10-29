@@ -33,5 +33,31 @@ class LivePreflightIsolationTests(unittest.TestCase):
             self.assertFalse((Path(tmp)/"stage4-universe-cursor.json").exists())
             batch.assert_not_called()
 
+
+    def test_all_ineligible_page_advances_cursor_without_paid_call(self):
+        import json
+        with tempfile.TemporaryDirectory() as tmp:
+            seen=[]
+            def discover_page(**kw):
+                seen.append(kw["offset"])
+                return {"symbols":["4USDT"] if kw["offset"]==0 else ["BTCUSDT"],
+                        "has_more":kw["offset"]==0}
+            with patch("agent_stage_four_rotation.discover",side_effect=discover_page),\\
+                 patch("agent_stage_four_rotation.enough_closed_history",
+                       side_effect=lambda symbol,**kw:symbol=="BTCUSDT"),\\
+                 patch("agent_stage_four_rotation.run_discovered_batch",
+                       return_value={"items":[{"symbol":"BTCUSDT","status":"completed"}]}) as paid:
+                first=run_rotation(tmp,slot="20261029T06Z")
+                self.assertEqual(first["status"],"waiting_for_fresh_data")
+                self.assertEqual(first["next_offset"],1)
+                self.assertEqual(first["paper_only"],True)
+                paid.assert_not_called()
+                cursor=json.loads((Path(tmp)/"stage4-universe-cursor.json").read_text())
+                self.assertEqual(cursor["status"],"completed")
+                second=run_rotation(tmp,slot="20261029T12Z")
+            self.assertEqual(second["status"],"completed")
+            self.assertEqual(seen,[0,1])
+            self.assertEqual(paid.call_count,1)
+
 if __name__=="__main__":
     unittest.main()
