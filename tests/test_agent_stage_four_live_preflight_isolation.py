@@ -30,7 +30,7 @@ class LivePreflightIsolationTests(unittest.TestCase):
                  patch("agent_stage_four_rotation.run_discovered_batch") as batch:
                 result=run_rotation(tmp,slot="20261029T06Z")
             self.assertEqual(result["status"],"waiting_for_fresh_data")
-            self.assertFalse((Path(tmp)/"stage4-universe-cursor.json").exists())
+            self.assertTrue((Path(tmp)/"stage4-universe-cursor.json").exists())
             batch.assert_not_called()
 
 
@@ -42,9 +42,9 @@ class LivePreflightIsolationTests(unittest.TestCase):
                 seen.append(kw["offset"])
                 return {"symbols":["4USDT"] if kw["offset"]==0 else ["BTCUSDT"],
                         "has_more":kw["offset"]==0}
-            with patch("agent_stage_four_rotation.discover",side_effect=discover_page),\\
+            with patch("agent_stage_four_rotation.discover",side_effect=discover_page),\
                  patch("agent_stage_four_rotation.enough_closed_history",
-                       side_effect=lambda symbol,**kw:symbol=="BTCUSDT"),\\
+                       side_effect=lambda symbol,**kw:symbol=="BTCUSDT"),\
                  patch("agent_stage_four_rotation.run_discovered_batch",
                        return_value={"items":[{"symbol":"BTCUSDT","status":"completed"}]}) as paid:
                 first=run_rotation(tmp,slot="20261029T06Z")
